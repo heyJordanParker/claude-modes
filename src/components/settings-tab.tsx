@@ -1,0 +1,74 @@
+import type { RenderElement } from 'claude-code'
+import type { Mod } from '../../node_modules/@cmodjs/core/mod.js'
+import { Box, Button, Select, Text } from '../../node_modules/@cmodjs/core/ui/elements.js'
+import { describe } from '../jobs/mode-gates.js'
+import type { ModeSpec } from '../protocol.js'
+import type { ModesState } from '../state.js'
+
+export function SettingsTab({ mod, enter }: { readonly mod: Mod<ModesState>; readonly enter: (mode: string) => void }): RenderElement {
+  const { definitions, modes, failure } = mod.state.memory
+  if (definitions === null) return <Text dimColor>{failure === '' ? 'Loading the modes…' : failure}</Text>
+
+  return (
+    <Box flexDirection="column" gap={1}>
+      <Box flexDirection="column">
+        <Text bold>Modes</Text>
+        {definitions.modes.length === 0 ? <Text dimColor>No modes yet. Add a Markdown file to one of the folders below, such as review.md.</Text> : null}
+        {definitions.modes.map((mode, index) => (
+          <ModeLine mode={mode} isCurrent={mode.name === modes.main} hotkey={index < 9 ? `${index + 1}` : undefined} enter={enter} />
+        ))}
+      </Box>
+      <Select
+        key="default-mode"
+        label="New sessions start in"
+        value={mod.state.global.defaultMode}
+        options={[{ value: '', label: 'the first mode' }, ...definitions.modes.map(({ name }) => ({ value: name, label: name }))]}
+        onSelect={(value) => { mod.state.global.defaultMode = value }}
+      />
+      <Box flexDirection="column">
+        <Text bold>Hook scripts</Text>
+        {definitions.hooks.length === 0 ? <Text dimColor>None. Add a .ts file to hooks/ in one of the folders below.</Text> : null}
+        {definitions.hooks.map((hook) => (
+          <Text wrap="truncate-end">{`${hook.name}  on ${hook.events.join(', ')}${hook.modes.length === 0 ? '' : `  in ${hook.modes.join(', ')}`}`}</Text>
+        ))}
+      </Box>
+      {definitions.problems.length === 0 ? (
+        <Text dimColor>No problems.</Text>
+      ) : (
+        <Box flexDirection="column">
+          <Text bold color="red">Problems</Text>
+          {definitions.problems.map((problem) => (
+            <Text color="red">{`${problem.source}: ${problem.message}`}</Text>
+          ))}
+        </Box>
+      )}
+      <Box flexDirection="column">
+        <Text bold>Folders</Text>
+        {definitions.folders.map((folder) => (
+          <Text dimColor wrap="truncate-start">{folder}</Text>
+        ))}
+        <Text dimColor>A saved change applies to the next event.</Text>
+      </Box>
+    </Box>
+  )
+}
+
+function ModeLine({ mode, isCurrent, hotkey, enter }: { readonly mode: ModeSpec; readonly isCurrent: boolean; readonly hotkey: string | undefined; readonly enter: (mode: string) => void }): RenderElement {
+  const facts = [
+    ...mode.deny.map((gate) => `refuses ${describe(gate)}`),
+    ...mode.ask.map((gate) => `asks before ${describe(gate)}`),
+    mode.lasts === 'turn' ? 'lasts one turn' : undefined,
+    ...mode.after.map(({ enter: next, ...target }) => `enters ${next} after ${describe(target)}`),
+  ].filter((fact) => fact !== undefined)
+  return (
+    <Box flexDirection="column">
+      <Box gap={1}>
+        <Button key={`enter:${mode.name}`} {...(hotkey === undefined ? {} : { hotkey })} variant={isCurrent ? 'primary' : 'secondary'} label={mode.name} onPress={() => enter(mode.name)} />
+        <Text dimColor wrap="truncate-end">{mode.description}</Text>
+      </Box>
+      {facts.map((fact) => (
+        <Text dimColor>{`    ${fact}`}</Text>
+      ))}
+    </Box>
+  )
+}

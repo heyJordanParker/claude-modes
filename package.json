@@ -1,0 +1,14 @@
+{
+  "name": "modes",
+  "private": true,
+  "type": "module",
+  "cmod": { "program": "claude-modes" },
+  "files": ["hooks", "src", "skills", "types"],
+  "scripts": {
+    "test": "bun test",
+    "check": "cmod check"
+  },
+  "dependencies": {
+    "@cmodjs/core": "^0.1.8"
+  }
+}
