@@ -1,0 +1,33 @@
+{
+  "name": "claude-modes",
+  "version": "0.1.0",
+  "description": "The Modes program: the session store, mode and hook definitions, and the claude-modes command.",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/heyJordanParker/claude-modes.git",
+    "directory": "cli"
+  },
+  "bin": {
+    "claude-modes": "src/main.ts"
+  },
+  "scripts": {
+    "build": "bun build --compile --minify --target=bun-darwin-arm64 src/main.ts --outfile dist/claude-modes-darwin-arm64 && bun build --compile --minify --target=bun-darwin-x64 src/main.ts --outfile dist/claude-modes-darwin-x64 && bun build --compile --minify --target=bun-linux-x64 src/main.ts --outfile dist/claude-modes-linux-x64 && bun build --compile --minify --target=bun-linux-arm64 src/main.ts --outfile dist/claude-modes-linux-arm64",
+    "check": "tsc --noEmit",
+    "test": "bun test"
+  },
+  "cmod": {
+    "build": "bun run build",
+    "output": "dist"
+  },
+  "dependencies": {
+    "shell-quote": "^1.8.3"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.2.21",
+    "@types/shell-quote": "^1.7.5",
+    "typescript": "^5.9.2"
+  }
+}

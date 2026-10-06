@@ -1,0 +1,12 @@
+.DS_Store
+node_modules/
+.claude-plugin/types/
+cli/dist/
+*.tgz
+
+# agent Evidence directories and Plans: session work product, never committed
+/docs/agents/
+/docs/plans/
+
+# tracer's per-repo disk cache
+.tracer-cache/
