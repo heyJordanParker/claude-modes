@@ -79,6 +79,17 @@ test('a hook script answers the event it names, and a saved change applies to th
   expect(await tested.fire('UserPromptSubmit', { prompt: 'hi' })).toMatchObject({ additionalContext: ['Reply in French.'] })
 })
 
+test('a hook script that fails denies the call, and Settings lists the failure', async () => {
+  const { tested } = await started({ 'cmods/modes/hooks/vault.ts': "export default { on: 'PreToolUse', run() { throw new Error('the vault is locked') } }\n" })
+
+  const answer = await tested.fire('PreToolUse', { tool_name: 'Read', tool_input: { file_path: '/a' } })
+  await tested.type('/modes')
+  await tested.press('modes', 'tab-settings')
+
+  expect(answer).toMatchObject({ deny: 'The vault hook failed, so it denies the call: the vault is locked' })
+  expect((await tested.lines('modes')).join('\n')).toContain('vault.ts: the vault is locked')
+})
+
 test('the panel opens on History and lists the modes on Settings', async () => {
   const { tested } = await started()
 

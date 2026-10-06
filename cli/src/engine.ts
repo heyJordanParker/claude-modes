@@ -24,12 +24,16 @@ export type Engine = ReturnType<typeof createEngine>
 
 export function createEngine(store: Store, catalog: Catalog, now: () => number = Date.now) {
   const failures: Problem[] = []
+  let failureCount = 0
 
   const fail = (source: string, message: string) => {
+    failureCount += 1
     failures.push({ source, message })
     failures.splice(0, Math.max(0, failures.length - 20))
     console.error(`${source}: ${message}`)
   }
+
+  const revision = () => catalog.version + failureCount
 
   const rulesOf = (mode: ModeSpec) => [`Mode: ${mode.name}${mode.description === '' ? '' : ` (${mode.description})`}`, mode.rules].filter((part) => part !== '').join('\n\n')
 
@@ -124,7 +128,7 @@ export function createEngine(store: Store, catalog: Catalog, now: () => number =
       else if (event === 'SubagentStart' && agentId !== undefined) deliver(agentId, true)
       else if (allowed.has('context') && event !== 'Stop' && event !== 'SubagentStop') deliver(agentId, false)
 
-      return { effects, modes: store.modeState(session.id), version: catalog.version }
+      return { effects, modes: store.modeState(session.id), version: revision() }
     },
 
     async enter(request: EnterRequest): Promise<{ readonly modes: ModeState }> {
@@ -138,7 +142,7 @@ export function createEngine(store: Store, catalog: Catalog, now: () => number =
 
     async definitions(projectRoot: string): Promise<Definitions> {
       const { definitions } = await catalog.load(projectRoot)
-      return { ...definitions, problems: [...definitions.problems, ...failures], version: catalog.version }
+      return { ...definitions, problems: [...definitions.problems, ...failures], version: revision() }
     },
 
     history: (sessionId: string) => historyOf(store, sessionId),
