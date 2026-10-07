@@ -7,7 +7,7 @@
     "install": "./setup/install.sh",
     "uninstall": "./setup/uninstall.sh"
   },
-  "files": ["hooks", "setup", "src", "skills", "types"],
+  "files": ["hooks", "setup", "src", "skills", "types", "tsconfig.json"],
   "scripts": {
     "test": "bun test",
     "check": "cmod check"

@@ -1,5 +1,8 @@
 # Modes
 
+[![CI](https://github.com/heyJordanParker/claude-modes/actions/workflows/ci.yml/badge.svg)](https://github.com/heyJordanParker/claude-modes/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+
 Modes for Claude Code that you define in plain files. A mode says what Claude may do, what it reads while the mode lasts, and how the session moves to the next one. You switch modes with one key, and a panel shows the whole session by task.
 
 ```text
@@ -17,12 +20,21 @@ Modes is a [Claude Mod Manager](https://github.com/heyJordanParker/cmod) mod. Th
 
 ## Install
 
+In Claude Code, add the Modes marketplace and install the plugin:
+
+```text
+/plugin marketplace add heyJordanParker/claude-modes
+/plugin install modes@modes
+```
+
+Claude Code installs the cmod plugin with it. cmod puts the `claude-modes` program on your `PATH` and runs Modes' install step. Or, in a terminal:
+
 ```sh
 npm i -g @cmodjs/cli
 cmod install heyJordanParker/claude-modes
 ```
 
-Start `claude`, then type `/modes` to open the panel.
+Type `/modes` to open the panel.
 
 Installing asks once to bind shift+tab to `/mode`. With your consent, Modes adds this to `~/.claude/keybindings.json`, editing the file in place, and removes it when you uninstall Modes:
 

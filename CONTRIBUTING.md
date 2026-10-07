@@ -37,4 +37,10 @@ Write a failing test first, then the change that passes it.
 
 ## Release
 
-Bump `version` in `.claude-plugin/plugin.json` and `cli/package.json`, add the release to `CHANGELOG.md`, commit, then run `cmod publish`. It builds `claude-modes` for macOS and Linux and attaches each build to the GitHub release.
+Bump `version` in `.claude-plugin/plugin.json` and `cli/package.json`, add the release to `CHANGELOG.md`, commit, and push to `main`. The Release workflow sees a version with no tag yet and runs `cmod publish`, which:
+
+- builds the release from the files `package.json` lists, with the hooks module bundled
+- builds `claude-modes` for macOS and Linux and attaches each build to the GitHub release `v<version>`
+- writes and commits `.claude-plugin/marketplace.json`, which `/plugin marketplace add` reads
+
+`cmod publish --dry-run` builds all of it locally and pushes nothing.

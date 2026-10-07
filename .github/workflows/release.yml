@@ -1,0 +1,59 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+
+jobs:
+  release:
+    runs-on: macos-latest
+    timeout-minutes: 30
+    env:
+      CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC: '1'
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Find whether this version is released
+        id: version
+        run: |
+          version=$(node -p "require('./.claude-plugin/plugin.json').version")
+          own=$(node -p "require('./cli/package.json').version")
+          [ "$own" = "$version" ] || { echo "cli/package.json is $own but .claude-plugin/plugin.json is $version"; exit 1; }
+          if git rev-parse -q --verify "refs/tags/v$version" > /dev/null; then echo "release=done" >> "$GITHUB_OUTPUT"; fi
+
+      - if: steps.version.outputs.release != 'done'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: 1.2.21
+
+      - name: Install Claude Code, cmod, and the packages
+        if: steps.version.outputs.release != 'done'
+        run: |
+          curl -fsSL https://claude.ai/install.sh | bash
+          echo "$HOME/.local/bin" >> "$GITHUB_PATH"
+          npm install -g @cmodjs/cli
+          bun install --frozen-lockfile
+          bun install --cwd cli --frozen-lockfile
+
+      - name: Test the program and the mod
+        if: steps.version.outputs.release != 'done'
+        run: |
+          bunx tsc --noEmit -p cli
+          bun test --cwd cli
+          bun test
+
+      - name: Release Modes and the claude-modes program on GitHub
+        if: steps.version.outputs.release != 'done'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          cmod publish
