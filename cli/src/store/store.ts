@@ -159,6 +159,16 @@ export function openStore(path: string) {
       ).run(message.id, sessionId, context.id, turnId, message.task_id, message.kind, message.sender, message.name, message.tool_use_id, message.jump, message.text, message.is_error, message.at)
     },
 
+    addRow(sessionId: string, agentId: string | undefined, uuid: string | undefined, line: string): void {
+      db.query('insert or ignore into rows (session_id, agent_id, uuid, line) values (?, ?, ?, ?)').run(sessionId, agentId ?? null, uuid ?? null, line)
+    },
+
+    rows: (sessionId: string, agentId: string | undefined) =>
+      db
+        .query<{ line: string }, [string, string | null]>('select line from rows where session_id = ? and agent_id is ? order by seq')
+        .all(sessionId, agentId ?? null)
+        .map(({ line }) => line),
+
     markToolError(sessionId: string, toolUseId: string): void {
       db.query("update messages set is_error = 1 where session_id = ? and tool_use_id = ? and kind = 'tool call'").run(sessionId, toolUseId)
     },

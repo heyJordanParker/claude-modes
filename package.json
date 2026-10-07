@@ -2,8 +2,12 @@
   "name": "modes",
   "private": true,
   "type": "module",
-  "cmod": { "program": "claude-modes" },
-  "files": ["hooks", "src", "skills", "types"],
+  "cmod": {
+    "program": "claude-modes",
+    "install": "./setup/install.sh",
+    "uninstall": "./setup/uninstall.sh"
+  },
+  "files": ["hooks", "setup", "src", "skills", "types"],
   "scripts": {
     "test": "bun test",
     "check": "cmod check"

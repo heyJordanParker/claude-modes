@@ -1,5 +1,5 @@
 import { expect, test } from 'bun:test'
-import { existsSync } from 'node:fs'
+import { existsSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { proposeMode, temporaryFolder, writeFiles } from './fixtures.ts'
 
@@ -51,4 +51,25 @@ test('the command line lists, shows, and moves sessions between modes', async ()
   expect(run('show', 'session-9').out).toBe('Ship the release\n  turn: Ship the release\n    mode: build (command claude-modes set)')
   expect(run('set', 'session-9', 'mode', 'ship')).toMatchObject({ code: 1, err: expect.stringContaining('"ship" is not a mode') })
   expect(run('check', project)).toMatchObject({ code: 0, out: expect.stringContaining('propose  2 gates') })
+})
+
+test('a session imported on one machine writes back the same transcript on another', () => {
+  const store = temporaryFolder()
+  const otherMachine = temporaryFolder()
+  const project = temporaryFolder()
+  const lines = [
+    JSON.stringify({ type: 'user', uuid: 'u1', cwd: project, timestamp: '2026-01-01T10:00:00.000Z', message: { role: 'user', content: 'Ship the release' } }),
+    JSON.stringify({ type: 'assistant', uuid: 'a1', cwd: project, timestamp: '2026-01-01T10:01:00.000Z', message: { role: 'assistant', content: [{ type: 'text', text: 'Shipped.' }] } }),
+  ]
+  const transcript = join(temporaryFolder(), 'session-7.jsonl')
+  writeFiles('/', { [transcript]: `${lines.join('\n')}\n` })
+  const run = (...args: string[]) => Bun.spawnSync(['bun', main, ...args], { env: { ...process.env, CLAUDE_CONFIG_DIR: otherMachine, CLAUDE_MODES_HOME: store } })
+
+  expect(run('import', transcript).exitCode).toBe(0)
+  const exported = run('export', 'session-7', '--as', 'claude')
+  const written = join(otherMachine, 'projects', project.replace(/[^A-Za-z0-9]/g, '-'), 'session-7.jsonl')
+
+  expect(exported.stdout.toString().trim()).toBe(`Wrote ${written}. Resume it with: claude --resume session-7`)
+  expect(readFileSync(written, 'utf8')).toBe(`${lines.join('\n')}\n`)
+  expect(run('export', 'session-7', '--as', 'claude').exitCode).toBe(1)
 })

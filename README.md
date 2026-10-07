@@ -24,15 +24,13 @@ cmod install heyJordanParker/claude-modes
 
 Start `claude`, then type `/modes` to open the panel.
 
-To switch modes with shift+tab, bind it in `~/.claude/keybindings.json`. The binding replaces shift+tab's built-in cycle of permission modes:
+Installing asks once to bind shift+tab to `/mode`. With your consent, Modes adds this to `~/.claude/keybindings.json`, editing the file in place, and removes it when you uninstall Modes:
 
 ```json
-{
-  "bindings": [
-    { "context": "Chat", "bindings": { "shift+tab": "command:mode" } }
-  ]
-}
+{ "context": "Chat", "bindings": { "shift+tab": "command:mode" } }
 ```
+
+The binding replaces shift+tab's built-in cycle of permission modes. When you already bound shift+tab to something else, Modes leaves it. `claude-modes unbind` gives the key back, and `claude-modes bind` takes it again.
 
 ## Define a mode
 
@@ -111,7 +109,7 @@ A Skill enters its mode when it loads. An Agent sets the mode its session, or it
 
 - `/mode` moves to the next mode, and `/mode <name>` enters one.
 - `/<name>` enters that mode. Each mode file adds its command.
-- shift+tab, once bound, runs `/mode`.
+- shift+tab runs `/mode`.
 - A press on `mode: <name>` above the prompt moves to the next mode.
 
 ## The Modes panel
@@ -134,8 +132,12 @@ claude-modes current [--field mode]       The latest session in this folder
 claude-modes watch                        Print every message as sessions record it
 claude-modes import <transcript.jsonl>    Import a Claude Code transcript
 claude-modes export <session>             Print a session as JSON
+claude-modes export <session> --as claude Write a session back as a Claude Code transcript, to resume it
 claude-modes check [<project>]            List the modes, hook scripts, and every problem
+claude-modes bind | unbind                Take shift+tab for /mode, or give it back
 ```
+
+To move every session to another machine, copy the store folder there. `claude-modes export <session> --as claude` then writes the session's transcript where Claude Code looks for it, and `claude --resume <session>` continues it.
 
 ## Build on Modes
 

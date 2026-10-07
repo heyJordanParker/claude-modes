@@ -38,6 +38,12 @@ The program builds the model from the session's transcript. On each event it rea
 
 `sessions.db` is SQLite in WAL mode with a busy timeout, so every session's program writes the one file at once. It lives in cmod's data folder for Modes, `~/.local/share/cmod/data/modes/`, or in `CLAUDE_MODES_HOME`. Moving the folder moves every session.
 
+Beside the model, the store keeps each transcript row as Claude Code wrote it. `claude-modes export <session> --as claude` writes those rows back into Claude Code's projects folder, with each subagent's rows, so a session copied from another machine resumes with `claude --resume`.
+
+## The install step
+
+A mod cannot bind a key: Claude Code reads bindings only from `~/.claude/keybindings.json`. So Modes' cmod install step, `setup/install.sh`, runs `claude-modes bind`, which adds `"shift+tab": "command:mode"` to the `Chat` context, and `setup/uninstall.sh` runs `claude-modes unbind`. cmod asks your consent before either runs. Both edit the file in place, so a `keybindings.json` that is a symbolic link stays one.
+
 ## Reloading
 
 Before each event the program compares the time and size of every file it reads. When one changed it loads them again and raises its version. The mod reads the new definitions when an answer carries a new version, and adds a command for each new mode.

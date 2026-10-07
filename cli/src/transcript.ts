@@ -41,7 +41,9 @@ async function importFile(store: Store, path: string, thread: Thread): Promise<v
   store.transaction(() => {
     for (const line of text.split('\n')) {
       if (line.trim() === '') continue
-      importRow(store, JSON.parse(line) as Row, thread)
+      const row = JSON.parse(line) as Row
+      store.addRow(thread.sessionId, thread.agentId, typeof row['uuid'] === 'string' ? row['uuid'] : undefined, line)
+      importRow(store, row, thread)
     }
     store.setOffset(path, thread.sessionId, thread.agentId, offset + end + 1)
   })

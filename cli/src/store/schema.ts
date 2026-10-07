@@ -64,6 +64,16 @@ create table if not exists messages (
 create index if not exists messages_by_session on messages(session_id, seq);
 create index if not exists messages_by_tool_use on messages(session_id, tool_use_id);
 
+create table if not exists rows (
+  seq integer primary key,
+  session_id text not null references sessions(id) on delete cascade,
+  agent_id text,
+  uuid text unique,
+  line text not null
+);
+
+create index if not exists rows_by_session on rows(session_id, agent_id, seq);
+
 create table if not exists modes (
   id integer primary key,
   session_id text not null references sessions(id) on delete cascade,

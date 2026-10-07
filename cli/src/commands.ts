@@ -1,5 +1,5 @@
-import { existsSync, readFileSync } from 'node:fs'
-import { basename, dirname, resolve } from 'node:path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs'
+import { basename, dirname, join, resolve } from 'node:path'
 import type { HistoryNode } from '../../src/protocol.ts'
 import { createCatalog } from './definitions/catalog.ts'
 import { historyOf } from './history.ts'
@@ -84,6 +84,27 @@ export function exportSession(store: Store, sessionId: string): Output {
       2,
     ),
   )
+}
+
+export function exportTranscript(store: Store, configHome: string, sessionId: string): Output {
+  const session = store.session(sessionId)
+  if (session === null) return failed(`No session ${sessionId}.`)
+  const folder = join(configHome, 'projects', session.project.replace(/[^A-Za-z0-9]/g, '-'))
+  const transcript = join(folder, `${sessionId}.jsonl`)
+  if (existsSync(transcript)) return failed(`${transcript} already exists. Resume it with: claude --resume ${sessionId}`)
+  const lines = store.rows(sessionId, undefined)
+  if (lines.length === 0) return failed(`${sessionId} holds no transcript rows to write.`)
+  mkdirSync(folder, { recursive: true })
+  writeFileSync(transcript, `${lines.join('\n')}\n`)
+  for (const task of store.tasks(sessionId).filter(({ parent_id }) => parent_id !== null)) {
+    const rows = store.rows(sessionId, task.id)
+    if (rows.length === 0) continue
+    const subagents = join(folder, sessionId, 'subagents')
+    mkdirSync(subagents, { recursive: true })
+    writeFileSync(join(subagents, `agent-${task.id}.jsonl`), `${rows.join('\n')}\n`)
+    writeFileSync(join(subagents, `agent-${task.id}.meta.json`), JSON.stringify({ agentType: task.agent_type, description: task.title, toolUseId: task.opened_by }))
+  }
+  return ok(`Wrote ${transcript}. Resume it with: claude --resume ${sessionId}`)
 }
 
 export function current(store: Store, cwd: string, field: string | undefined): Output {
