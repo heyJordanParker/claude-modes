@@ -40,4 +40,4 @@ export const review = defineMod({
 })
 ```
 
-A UI that needs more than Markdown, such as its own view or a widget above the prompt, belongs in your mod, which reads the mode through `current`.
+A UI that needs more than Markdown, such as its own view or a widget, belongs in your mod, which reads the mode through `current`.

@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.1.0]
+
+- Claude lists the modes with the `list_modes` tool: each mode in order, what it refuses, asks about, and enters, and the mode the session and each subagent is in.
+- The Mode widget draws below the prompt in a new install. You move it above the prompt in Settings, under cmod, Widgets.
+- Modes runs on Claude Mod Manager 8.7.
+
 ## [1.0.0]
 
 The first release, built on Claude Mod Manager 8.3.

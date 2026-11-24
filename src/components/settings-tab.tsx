@@ -1,6 +1,6 @@
 import type { Mod } from '../../node_modules/@cmodjs/core/mod.js'
 import { Box, Button, Text } from '../../node_modules/@cmodjs/core/ui/elements.js'
-import { describe } from '../jobs/mode-gates.js'
+import { factsOf } from '../jobs/mode-gates.js'
 import type { ModeSpec } from '../protocol.js'
 import type { ModesState } from '../state.js'
 
@@ -50,12 +50,7 @@ export function SettingsTab({ mod, enter, defaultMode }: { readonly mod: Mod<Mod
 }
 
 function ModeLine({ mode, isCurrent, enter }: { readonly mode: ModeSpec; readonly isCurrent: boolean; readonly enter: (mode: string) => void }): JSX.Element {
-  const facts = [
-    ...mode.deny.map((gate) => `refuses ${describe(gate)}`),
-    ...mode.ask.map((gate) => `asks before ${describe(gate)}`),
-    mode.lasts === 'turn' ? 'lasts one turn' : undefined,
-    ...mode.after.map(({ enter: next, ...target }) => `enters ${next} after ${describe(target)}`),
-  ].filter((fact) => fact !== undefined)
+  const facts = factsOf(mode)
   return (
     <Box flexDirection="column">
       <Box gap={1}>

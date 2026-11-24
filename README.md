@@ -6,8 +6,8 @@
 Modes for Claude Code that you define in plain files. A mode says what Claude may do, what it reads while the mode lasts, and how the session moves to the next one. You switch modes with one key, and the Modes view lists every mode and hook script.
 
 ```text
-mode: propose                                     ← the Mode widget above the prompt; a press moves on
 ❯ plan the login page
+mode: propose                                     ← the Mode widget below the prompt; a press moves on
 ```
 
 - **Modes are Markdown files.** The frontmatter names what the mode refuses or asks about. The body is the rules Claude reads when the mode starts.
@@ -127,7 +127,9 @@ A Skill enters its mode when it loads. An Agent sets the mode its session, or it
 - `/mode` moves to the next mode, and `/mode <name>` enters one.
 - `/<name>` enters that mode. Each mode file adds its command.
 - shift+tab moves to the next mode.
-- A press on `mode: <name>` above the prompt moves to the next mode.
+- A press on `mode: <name>` below the prompt moves to the next mode.
+
+Claude lists the modes with the `list_modes` tool: each mode in order, what it refuses, asks about, and enters, and the mode the session and each subagent is in.
 
 ## The Modes view
 

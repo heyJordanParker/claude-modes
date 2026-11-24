@@ -78,7 +78,7 @@ When a call matches and succeeds, the session enters `propose`, and Claude reads
 
 - `/mode` moves to the next mode. `/mode <name>` enters that mode.
 - `/<name>` enters that mode. Modes adds the command when it first sees the file. A name that another command or Skill already uses is not added; use `/mode <name>`.
-- A press on `mode: <name>` above the prompt moves to the next mode.
+- A press on `mode: <name>` below the prompt moves to the next mode.
 - A Skill with `modes.mode: <name>` in its frontmatter's `metadata` enters the mode when it loads, typed as `/<skill>` or called by Claude.
 - An Agent with `modes.mode: <name>` in its `metadata` starts there: a session run as that Agent, or a subagent of that type.
 - shift+tab moves to the next mode.

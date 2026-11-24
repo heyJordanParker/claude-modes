@@ -1,6 +1,6 @@
 import { afterEach, expect, test } from 'bun:test'
 import { join } from 'node:path'
-import { AbovePrompt, Prompt } from '../node_modules/@cmodjs/core/mod.js'
+import { BelowPrompt, Prompt } from '../node_modules/@cmodjs/core/mod.js'
 import { claudeCodeOf } from '../node_modules/@cmodjs/core/testing/claude-code.js'
 import { testMod } from '../node_modules/@cmodjs/core/testing.js'
 import { modes } from '../src/mod.js'
@@ -32,7 +32,28 @@ test('a session starts in the first mode, Claude reads its rules, and the widget
   const context = await tested.fire('prompt.context', { blocks: [] } as never, { blocks: [] } as never)
 
   expect(JSON.stringify(context)).toContain('Mode: propose (plan before you build)\\n\\nYou are proposing.')
-  expect(await tested.lines(AbovePrompt)).toEqual(['mode: propose'])
+  expect(await tested.lines(BelowPrompt)).toEqual(['mode: propose'])
+})
+
+test('Claude lists the modes in order, with their gates, and the mode the session is in', async () => {
+  const { tested } = await started()
+  await tested.type('/build')
+
+  const listed = await tested.callTool('list_modes', {})
+
+  expect(listed).toEqual({
+    result: [
+      'The modes, in order. The session is in build.',
+      '- propose: plan before you build',
+      '  refuses edits to ** except docs/plans/**',
+      '  refuses git commit',
+      '- build (the session is in it)',
+      '  refuses every subagent',
+      '- commit',
+      '  lasts one turn',
+      '  enters propose after git commit',
+    ].join('\n'),
+  })
 })
 
 test('a new mode gives Claude its rules once, as a note', async () => {
