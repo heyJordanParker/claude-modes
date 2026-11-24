@@ -1,5 +1,12 @@
 # Changelog
 
+## [1.2.0]
+
+- Switching modes several times in a row gives Claude one note, with the last mode's rules, beside your next prompt. Before, Claude read a note for every switch.
+- Modes runs on Claude Mod Manager 8.8.
+- A mode file names its `color`, one of an Agent's colors: `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, or `cyan`. The Mode widget and the Modes view draw the mode's name in it.
+- A slow answer from cmod about which mods start and stop no longer keeps Modes from hearing rulebook's checks for the whole session.
+
 ## [1.1.0]
 
 - Claude lists the modes with the `list_modes` tool: each mode in order, what it refuses, asks about, and enters, and the mode the session and each subagent is in.

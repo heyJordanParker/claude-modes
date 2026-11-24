@@ -1,9 +1,9 @@
 import { basename } from 'node:path'
-import type { Gate, ModeSpec, Patterns, Target, Transition } from '../../../src/protocol.ts'
+import { modeColors, type Gate, type ModeColor, type ModeSpec, type Patterns, type Target, type Transition } from '../../../src/protocol.ts'
 import { readFrontmatter } from './frontmatter.ts'
 
 const targetKeys = ['command', 'read', 'write', 'fetch', 'subagent', 'tool'] as const
-const modeKeys = new Set(['order', 'description', 'deny', 'ask', 'lasts', 'after'])
+const modeKeys = new Set(['order', 'description', 'color', 'deny', 'ask', 'lasts', 'after'])
 
 export const modeName = /^[A-Za-z0-9_-]{1,64}$/
 
@@ -17,6 +17,8 @@ export function readModeFile(path: string, text: string): ModeSpec {
   if (order !== undefined && typeof order !== 'number') throw new Error('order is not a number. Write a number, such as order: 1.')
   const description = data['description']
   if (description !== undefined && typeof description !== 'string') throw new Error('description is not text.')
+  const color = data['color']
+  if (color !== undefined && !modeColors.includes(color as ModeColor)) throw new Error(`color is "${String(color)}". Use one of ${modeColors.join(', ')}, as an Agent's color.`)
   const lasts = data['lasts']
   if (lasts !== undefined && lasts !== 'turn') throw new Error(`lasts is "${String(lasts)}". The one value is turn, or leave it out.`)
 
@@ -24,6 +26,7 @@ export function readModeFile(path: string, text: string): ModeSpec {
     name,
     order: order ?? Number.MAX_SAFE_INTEGER,
     description: description ?? '',
+    ...(color === undefined ? {} : { color: color as ModeColor }),
     rules: body,
     deny: listOf(data['deny'], 'deny').map((rule, index) => gateOf(rule, `deny[${index}]`)),
     ask: listOf(data['ask'], 'ask').map((rule, index) => gateOf(rule, `ask[${index}]`)),

@@ -17,10 +17,15 @@ export type Transition = Target & {
   readonly enter: string
 }
 
+export const modeColors = ['red', 'blue', 'green', 'yellow', 'purple', 'orange', 'pink', 'cyan'] as const
+
+export type ModeColor = (typeof modeColors)[number]
+
 export type ModeSpec = {
   readonly name: string
   readonly order: number
   readonly description: string
+  readonly color?: ModeColor
   readonly rules: string
   readonly deny: readonly Gate[]
   readonly ask: readonly Gate[]

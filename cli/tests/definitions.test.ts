@@ -19,6 +19,11 @@ test('a mode file holds its gates, how it ends, and its rules', () => {
   expect(readModeFile('/m/commit.md', commitMode)).toMatchObject({ lasts: 'turn', after: [{ command: 'git commit', enter: 'propose' }] })
 })
 
+test("a mode file names its color as an Agent does, and another color is refused with the colors there are", () => {
+  expect(readModeFile('/m/build.md', '---\ncolor: green\n---\n')).toMatchObject({ name: 'build', color: 'green' })
+  expect(() => readModeFile('/m/build.md', '---\ncolor: teal\n---\n')).toThrow('color is "teal". Use one of red, blue, green, yellow, purple, orange, pink, cyan, as an Agent\'s color.')
+})
+
 test('a mode file with a rule that names two targets is refused with the fix', () => {
   expect(() => readModeFile('/m/bad.md', '---\ndeny:\n  - write: "**"\n    read: "**"\n---\n')).toThrow('deny[0] names read and write. Name exactly one of command, read, write, fetch, subagent, tool.')
   expect(() => readModeFile('/m/bad.md', '---\ngates: []\n---\n')).toThrow('"gates" is not a mode key.')

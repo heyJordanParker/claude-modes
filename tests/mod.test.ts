@@ -56,14 +56,18 @@ test('Claude lists the modes in order, with their gates, and the mode the sessio
   })
 })
 
-test('a new mode gives Claude its rules once, as a note', async () => {
+test("modes entered in a row give Claude the last one's rules once, as a note with the next prompt", async () => {
   const { tested } = await started()
   await tested.fire('prompt.context', { blocks: [] } as never, { blocks: [] } as never)
 
   await tested.type('/mode')
+  await tested.type('/mode')
   await tested.settle()
 
-  expect(tested.shown.notes).toEqual(['# Mode\nMode: build\n\nYou are building.'])
+  await claudeCodeOf(tested).fire('UserPromptSubmit', { prompt: 'Go on' } as never)
+  await claudeCodeOf(tested).fire('UserPromptSubmit', { prompt: 'And again' } as never)
+
+  expect(tested.shown.notes).toEqual(['# Mode\nMode: commit\n\nCommit, then stop.'])
 })
 
 test('a new session starts in the mode the defaultMode option names', async () => {

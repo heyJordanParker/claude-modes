@@ -54,7 +54,9 @@ function ModeLine({ mode, isCurrent, enter }: { readonly mode: ModeSpec; readonl
   return (
     <Box flexDirection="column">
       <Box gap={1}>
-        <Button key={`enter:${mode.name}`} variant={isCurrent ? 'primary' : 'secondary'} label={mode.name} onPress={() => enter(mode.name)} />
+        <Button key={`enter:${mode.name}`} variant={isCurrent ? 'primary' : 'secondary'} label={mode.name} onPress={() => enter(mode.name)}>
+          <Text {...(mode.color === undefined ? {} : { color: mode.color })}>{mode.name}</Text>
+        </Button>
         <Text dimColor wrap="truncate-end">{mode.description}</Text>
       </Box>
       {facts.map((fact) => (

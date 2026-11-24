@@ -34,6 +34,7 @@ You are reviewing. Read the diff, run the tests, and list every problem you find
 | --- | --- | --- |
 | `order` | A number. `/mode`, shift+tab, and the Mode widget move through the modes from the lowest. Ties sort by name. | after every numbered mode |
 | `description` | One line of text. | none |
+| `color` | `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, or `cyan`, the colors an Agent takes. The Mode widget and the Modes view draw the mode's name in it. | the text color |
 | `deny` | A list of rules. A matching call is refused. | none |
 | `ask` | A list of rules. Claude Code asks you before a matching call runs. | none |
 | `lasts` | `turn`: the mode ends with the turn it ran in, and the session returns to the mode before it. | the mode lasts until another is entered |

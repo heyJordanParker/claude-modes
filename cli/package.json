@@ -1,6 +1,6 @@
 {
   "name": "claude-modes",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "The Modes program: the session store, mode and hook definitions, and the claude-modes command.",
   "license": "MIT",
   "private": true,
