@@ -2,8 +2,7 @@
 order: 1
 description: plan before you build
 deny:
-  - write: "**"
-    except: ["docs/plans/**", "/tmp/**"]
+  - write: ["**", "!docs/plans/**", "!/tmp/**"]
     reason: Write the plan in docs/plans/, then switch to build.
   - command: git commit
     reason: Commits happen in build or commit mode.

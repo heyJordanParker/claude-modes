@@ -3,18 +3,18 @@
 [![CI](https://github.com/heyJordanParker/claude-modes/actions/workflows/ci.yml/badge.svg)](https://github.com/heyJordanParker/claude-modes/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-Modes for Claude Code that you define in plain files. A mode says what Claude may do, what it reads while the mode lasts, and how the session moves to the next one. You switch modes with one key, and a panel shows the whole session by task.
+Modes for Claude Code that you define in plain files. A mode says what Claude may do, what it reads while the mode lasts, and how the session moves to the next one. You switch modes with one key, and the Modes view lists every mode and hook script.
 
 ```text
-mode: propose                                     ← the band above the prompt; a press moves on
+mode: propose                                     ← the Mode widget above the prompt; a press moves on
 ❯ plan the login page
 ```
 
 - **Modes are Markdown files.** The frontmatter names what the mode refuses or asks about. The body is the rules Claude reads when the mode starts.
 - **Hooks are TypeScript files.** A script imports `defineHook` from `claude-modes` and answers Claude Code's events. No plugin, no build, no restart.
-- **Agents and Skills enter modes.** `mode: build` in a Skill's frontmatter enters build when the Skill loads.
+- **Agents and Skills enter modes.** `modes.mode: build` in a Skill's `metadata` enters build when the Skill loads.
 - **A save applies to the next event.** Modes notices the change on the next prompt or tool call.
-- **The Modes panel** shows the session by turn and by subagent, and jumps the conversation to any row.
+- **rulebook rules belong to modes.** A rule with `metadata: { mode: 'propose' }` runs only for an agent in propose mode.
 
 Modes is a [Claude Mod Manager](https://github.com/heyJordanParker/cmod) mod. The plugin is named `modes`.
 
@@ -27,22 +27,27 @@ In Claude Code, add the Modes marketplace and install the plugin:
 /plugin install modes@modes
 ```
 
-Claude Code installs the cmod plugin with it. cmod puts the `claude-modes` program on your `PATH` and runs Modes' install step. Or, in a terminal:
+Claude Code installs the cmod plugin with it, and Modes opens its installer, which lists what it asks for. Or, in a terminal:
 
 ```sh
 npm i -g @cmodjs/cli
 cmod install heyJordanParker/claude-modes
 ```
 
-Type `/modes` to open the panel.
+Type `/modes` to open the Modes view.
 
-Installing asks once to bind shift+tab to `/mode`. With your consent, Modes adds this to `~/.claude/keybindings.json`, editing the file in place, and removes it when you uninstall Modes:
+### What Modes asks for
 
-```json
-{ "context": "Chat", "bindings": { "shift+tab": "command:mode" } }
-```
+The installer asks you to accept each of these, and `/mods modes` turns each one off again:
 
-The binding replaces shift+tab's built-in cycle of permission modes. When you already bound shift+tab to something else, Modes leaves it. `claude-modes unbind` gives the key back, and `claude-modes bind` takes it again.
+| Permission | Why |
+| --- | --- |
+| Run claude-modes on your computer | The program that keeps the session store and runs your hook scripts. cmod downloads it from this repository's release. |
+| Connect to 127.0.0.1 | The mod talks to its own `claude-modes` program on a local port. The program answers only requests with the token its mod gave it. |
+| Read this conversation | The program reads the session's transcript into its store, for `claude-modes show` and `export`. |
+| Add text Claude reads and start turns | A mode's rules reach Claude, and your hook scripts can add context. |
+| Approve Claude's tool calls for you | An `ask` rule asks you before a call, and a hook script can answer `ask`. Modes never allows a call by itself. |
+| Bind shift+tab | shift+tab switches modes. It replaces shift+tab's built-in cycle of permission modes. A key you already bound stays yours, and you change the key in Settings, under modes, Hotkeys. |
 
 ## Define a mode
 
@@ -55,8 +60,7 @@ Each mode is one Markdown file in `~/.claude/cmods/modes/`, or in a project's `.
 order: 1
 description: plan before you build
 deny:
-  - write: "**"
-    except: ["docs/plans/**"]
+  - write: ["**", "!docs/plans/**"]
     reason: Write the plan in docs/plans/.
   - command: git commit
 ---
@@ -79,13 +83,13 @@ Commit the work, then stop.
 | Key | What it does |
 | --- | --- |
 | `order` | The mode's place in the cycle. Lower comes first. |
-| `description` | One line, shown in the panel and in `/<mode>`'s help. |
-| `deny` | Calls the mode refuses. Each rule names one target, and may add `except` and `reason`. |
+| `description` | One line, shown in the Modes view and in `/<mode>`'s help. |
+| `deny` | Calls the mode refuses. Each rule names one target, and may add a `reason`. |
 | `ask` | Calls Claude Code asks you about first. Same rules as `deny`. |
 | `lasts: turn` | The mode ends when the turn ends, and the session returns to the mode before it. |
 | `after` | Rules that enter another mode once a matching call succeeds. |
 
-A rule's target is one of `command`, `read`, `write`, `fetch`, `subagent`, or `tool`, with the pattern rules of cmod's permissions. `except` takes `read`, `write`, and `fetch` patterns. [docs/modes.md](docs/modes.md) has every rule.
+A rule's target is one of `command`, `read`, `write`, `fetch`, `subagent`, or `tool`, with the pattern rules of cmod's permissions. A pattern that starts with `!` leaves calls out, as `"!docs/plans/**"` does. [docs/modes.md](docs/modes.md) has every rule.
 
 ## Write a hook
 
@@ -111,26 +115,46 @@ export default defineHook({
 ```yaml
 ---
 name: ship
-mode: commit
+metadata:
+  modes.mode: commit
 ---
 ```
 
-A Skill enters its mode when it loads. An Agent sets the mode its session, or its subagent, starts in.
+A Skill enters its mode when it loads. An Agent sets the mode its session, or its subagent, starts in. The key sits under `metadata` with Modes' name in front, cmod's convention for a mod's own keys, so a Skill still uploads to claude.ai and the Skills API, which refuse unknown top-level keys.
 
 ## Switch modes
 
 - `/mode` moves to the next mode, and `/mode <name>` enters one.
 - `/<name>` enters that mode. Each mode file adds its command.
-- shift+tab runs `/mode`.
+- shift+tab moves to the next mode.
 - A press on `mode: <name>` above the prompt moves to the next mode.
 
-## The Modes panel
+## The Modes view
 
-`/modes` opens the panel beside the conversation.
+`/modes` opens the Modes view in the Sidebar beside the conversation. It lists each mode with what it refuses and how it ends, the hook scripts, every problem in your files, and the mode new sessions start in. A mod built on Modes can add a first tab of its own.
 
-- **History** shows the session as you worked it. Each prompt is a turn, with Claude's replies, every tool call, failed calls marked, mode changes, and each subagent nested under the call that dispatched it. A compaction starts a new context. Switch to **Timeline** for every row in order, filter to prompts, tools, or errors, and type in **Find** to narrow the rows. A press on a row scrolls the conversation to it.
-- **Settings** lists each mode with what it refuses and how it ends, the hook scripts, every problem in your files, and the mode new sessions start in.
-- A mod built on Modes can add a first tab of its own.
+## rulebook rules in a mode
+
+A [rulebook](https://github.com/heyJordanParker/rulebook) rule that names a mode in its `metadata` runs only for an agent in that mode, the main agent or a subagent. rulebook runs every check, and Modes answers each one with the rules to turn off:
+
+```ts
+export default defineRule({
+  description: "Don't change code while proposing.",
+  metadata: { mode: 'propose' },
+  files: ['**', '!docs/plans/**'],
+  create(context) {
+    return { Document(node) { context.report({ node }) } }
+  },
+})
+```
+
+## Choose the starting mode
+
+New sessions start in the first mode, or in the mode an Agent names. To start somewhere else, set **Starting mode** under modes in `/config`. A team sets it for everyone in a project, in `.claude/cmods/modes/options.json`:
+
+```json
+{ "defaultMode": "propose" }
+```
 
 ## The claude-modes command
 
@@ -146,14 +170,13 @@ claude-modes import <transcript.jsonl>    Import a Claude Code transcript
 claude-modes export <session>             Print a session as JSON
 claude-modes export <session> --as claude Write a session back as a Claude Code transcript, to resume it
 claude-modes check [<project>]            List the modes, hook scripts, and every problem
-claude-modes bind | unbind                Take shift+tab for /mode, or give it back
 ```
 
 To move every session to another machine, copy the store folder there. `claude-modes export <session> --as claude` then writes the session's transcript where Claude Code looks for it, and `claude --resume <session>` continues it.
 
 ## Build on Modes
 
-A mod that draws its own UI for a mode lists `"dependencies": ["cmod", "modes"]` and calls Modes:
+A mod that draws its own UI for a mode lists `"dependencies": ["cmod", { "name": "modes", "version": "^1.0.0" }]` and calls Modes:
 
 ```ts
 const { mode } = await mod.dependencies.modes.current({})
@@ -166,7 +189,7 @@ await mod.dependencies.modes.showTab({ title: 'Review', markdown: '# Checklist\n
 
 - [Modes](docs/modes.md): every key of a mode file
 - [Hooks](docs/hooks.md): events, inputs, effects, and the SDK
-- [The panel](docs/panel.md): History, Settings, and the mode tab
+- [The Modes view](docs/view.md): Settings and the mode tab
 - [The API](docs/api.md): calling Modes from another mod
 - [How it works](docs/architecture.md): the mod, the program, and the store
 

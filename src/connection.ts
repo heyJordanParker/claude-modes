@@ -1,61 +1,53 @@
-import type { Job, Mod } from '../node_modules/@cmodjs/core/mod.js'
 import { program } from '../node_modules/@cmodjs/core/jobs/program.js'
-import type { EntryCause, EventAnswer, ModeState, SessionRef } from './protocol.js'
+import { http, sessions, type Mod } from '../node_modules/@cmodjs/core/mod.js'
+import type { Definitions, EntryCause, EventAnswer, ModeState, SessionRef } from './protocol.js'
 import type { ModesState } from './state.js'
 
 export type Connection = {
   post<Answer>(path: string, body: Readonly<Record<string, unknown>>): Promise<Answer>
-  session(): Promise<SessionRef>
-  event(event: string, input: Readonly<Record<string, unknown>>): Promise<EventAnswer>
+  session(): SessionRef
+  event(event: string, input: Readonly<Record<string, unknown>>, commands: readonly (readonly string[])[]): Promise<EventAnswer>
   enter(mode: string, agentId: string | undefined, cause: EntryCause): Promise<ModeState>
   refresh(): Promise<void>
-  refreshHistory(): Promise<void>
 }
 
-const sessionId: Job<() => Promise<string>, ModesState> = ({ claude }) => () => claude.session.id()
-
-export function connect(mod: Mod<ModesState>): Connection {
-  const store = mod.use(program({ command: ['claude-modes', 'serve'] }))
-  const idOf = mod.use(sessionId)
+export function connect(mod: Mod<ModesState>, defaultMode: () => string): Connection {
+  const token = crypto.randomUUID()
+  const store = mod.use(program({ command: ['claude-modes', 'serve'], environment: { CLAUDE_MODES_TOKEN: token } }))
   let version = 0
 
   const post = async <Answer,>(path: string, body: Readonly<Record<string, unknown>>): Promise<Answer> => {
-    const { url, socketPath } = await store.ready()
-    const response = await mod.http.fetch(`${url}${path}`, {
+    const { url } = await store.ready()
+    const response = await http.fetch(`${url}${path}`, {
       method: 'POST',
-      headers: { 'content-type': 'application/json' },
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
-      ...(socketPath === undefined ? {} : { socketPath }),
     })
     const answer = JSON.parse(response.text) as Answer & { readonly error?: string }
     if (!response.ok) throw new Error(answer.error ?? `${path} answered ${response.status}`)
     return answer
   }
 
-  const session = async (): Promise<SessionRef> => ({ id: await idOf(), projectRoot: mod.projectRoot, cwd: mod.cwd, defaultMode: mod.state.global.defaultMode })
+  const session = (): SessionRef => ({ id: sessions.current.id, projectRoot: sessions.current.project, cwd: sessions.current.cwd, defaultMode: defaultMode() })
 
   const connection: Connection = {
     post,
     session,
-    async event(event, input) {
-      const answer = await post<EventAnswer>('/event', { session: await session(), event, input })
+    async event(event, input, commands) {
+      const answer = await post<EventAnswer>('/event', { session: session(), event, input, commands })
       mod.state.memory.modes = answer.modes
       if (answer.version !== version) await connection.refresh()
       return answer
     },
     async enter(mode, agentId, cause) {
-      const { modes } = await post<{ readonly modes: ModeState }>('/enter', { session: await session(), mode, agentId, cause })
+      const { modes } = await post<{ readonly modes: ModeState }>('/enter', { session: session(), mode, agentId, cause })
       mod.state.memory.modes = modes
       return modes
     },
     async refresh() {
-      const definitions = await post<NonNullable<ModesState['memory']['definitions']>>('/definitions', { projectRoot: mod.projectRoot })
+      const definitions = await post<Definitions>('/definitions', { projectRoot: sessions.current.project })
       version = definitions.version
       mod.state.memory.definitions = definitions
-    },
-    async refreshHistory() {
-      const { history } = await post<{ readonly history: ModesState['memory']['history'] }>('/history', { sessionId: await idOf() })
-      mod.state.memory.history = history
     },
   }
   return connection

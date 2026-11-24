@@ -2,7 +2,7 @@
 
 ## Set up
 
-You need [Bun](https://bun.sh) 1.2.21 or later, Claude Code 2.1.287 or later, and the cmod command (`npm i -g @cmodjs/cli`).
+You need [Bun](https://bun.sh) 1.2.21 or later, Claude Code 2.1.292 or later, and the cmod command 8.3.2 or later (`npm i -g @cmodjs/cli`).
 
 ```sh
 git clone https://github.com/heyJordanParker/claude-modes.git
@@ -12,7 +12,7 @@ bun install --cwd cli
 cmod link
 ```
 
-`cmod link` builds `claude-modes` into `~/.local/bin` and loads the checkout in every new Claude Code session. A save to the mod reloads it at the end of the current turn. `cmod unlink` stops it.
+`cmod link` builds `claude-modes` into cmod's programs folder and `~/.local/bin`, and loads the checkout in every new Claude Code session. A save to the mod reloads it at the end of the current turn. `cmod unlink` stops it.
 
 ## Check your change
 
@@ -20,17 +20,17 @@ cmod link
 bun test                      # the mod against the real program
 bun test --cwd cli            # the program
 bunx tsc --noEmit -p cli      # the program's types
-bunx tsc --noEmit -p tests    # the tests' types
-cmod check                    # layout, imports, Claude Code's validator, types, lint, and tests
+cmod check                    # layout, imports, the bundle, Claude Code's validator, types, lint, and tests
 ```
 
-The mod's own type check needs `.claude-plugin/types/`, which Claude Code writes the first time a session loads the checkout. Start `claude` once after `cmod link`.
+The mod's own type check needs `.claude-plugin/types/`, which `cmod check` writes when it is missing, so run it once before `tsc` in a fresh clone.
 
 ## Where things go
 
 - A message between the mod and the program: `src/protocol.ts`.
 - Anything that needs Node, Bun, SQLite, or the disk: `cli/src/`.
-- Anything that needs Claude Code: the permission check, commands, drawing, and other mods: `src/`.
+- Anything that needs Claude Code: the permission check, the rules Claude reads, commands, drawing, and other mods: `src/`.
+- A new kind of call the mod makes, such as to a new host: a row in the README's "What Modes asks for".
 - A new example: `examples/`. `cli/tests/examples.test.ts` loads it, so it must have no problem.
 
 Write a failing test first, then the change that passes it.

@@ -1,9 +1,7 @@
 import type { Effect as ScriptEffect, HookContext } from 'claude-modes'
-import { parse } from 'shell-quote'
-import type { Definitions, Effect, EnterRequest, EntryCause, EventAnswer, EventRequest, ModeSpec, ModeState, Problem } from '../../src/protocol.ts'
+import { rulesOf, type Definitions, type Effect, type EnterRequest, type EntryCause, type EventAnswer, type EventRequest, type ModeState, type Problem } from '../../src/protocol.ts'
 import type { Catalog } from './definitions/catalog.ts'
 import type { LoadedScript } from './definitions/scripts.ts'
-import { historyOf } from './history.ts'
 import type { Store } from './store/store.ts'
 import { syncTranscript } from './transcript.ts'
 
@@ -34,8 +32,6 @@ export function createEngine(store: Store, catalog: Catalog, now: () => number =
   }
 
   const revision = () => catalog.version + failureCount
-
-  const rulesOf = (mode: ModeSpec) => [`Mode: ${mode.name}${mode.description === '' ? '' : ` (${mode.description})`}`, mode.rules].filter((part) => part !== '').join('\n\n')
 
   return {
     async event(request: EventRequest): Promise<EventAnswer> {
@@ -95,7 +91,7 @@ export function createEngine(store: Store, catalog: Catalog, now: () => number =
         session: { id: session.id, projectRoot: session.projectRoot, cwd: session.cwd },
         mode,
         agentId,
-        commands: commandsOf(input),
+        commands: request.commands,
       }
       for (const script of loaded.scripts) {
         if (!script.events.includes(event as LoadedScript['events'][number])) continue
@@ -117,16 +113,15 @@ export function createEngine(store: Store, catalog: Catalog, now: () => number =
         }
       }
 
-      const deliver = (agent: string | undefined, always: boolean) => {
+      const deliver = (agent: string, always: boolean) => {
         const pending = store.undeliveredMode(session.id, agent)
         const name = always ? modeOf(agent) : pending?.mode
         const spec = name === undefined ? undefined : modes.get(name)
         if (spec !== undefined) effects.push({ context: rulesOf(spec) })
         store.markDelivered(session.id, agent)
       }
-      if (event === 'SessionStart') deliver(undefined, true)
-      else if (event === 'SubagentStart' && agentId !== undefined) deliver(agentId, true)
-      else if (allowed.has('context') && event !== 'Stop' && event !== 'SubagentStop') deliver(agentId, false)
+      if (agentId !== undefined && event === 'SubagentStart') deliver(agentId, true)
+      else if (agentId !== undefined && allowed.has('context') && event !== 'SubagentStop') deliver(agentId, false)
 
       return { effects, modes: store.modeState(session.id), version: revision() }
     },
@@ -144,8 +139,6 @@ export function createEngine(store: Store, catalog: Catalog, now: () => number =
       const { definitions } = await catalog.load(projectRoot)
       return { ...definitions, problems: [...definitions.problems, ...failures], version: revision() }
     },
-
-    history: (sessionId: string) => historyOf(store, sessionId),
 
     entries: (sessionId: string) => store.entries(sessionId),
   }
@@ -166,16 +159,4 @@ async function runScript(script: LoadedScript, input: Readonly<Record<string, un
   } finally {
     clearTimeout(timer)
   }
-}
-
-function commandsOf(input: Readonly<Record<string, unknown>>): string[][] {
-  const command = (input['tool_input'] as Record<string, unknown> | undefined)?.['command']
-  if (input['tool_name'] !== 'Bash' || typeof command !== 'string') return []
-  const commands: string[][] = [[]]
-  for (const entry of parse(command, (key) => `$${key}`)) {
-    if (typeof entry === 'string') commands.at(-1)?.push(entry)
-    else if ('op' in entry && entry.op === 'glob') commands.at(-1)?.push(entry.pattern)
-    else if ('op' in entry) commands.push([])
-  }
-  return commands.filter((words) => words.length > 0)
 }

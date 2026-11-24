@@ -13,10 +13,10 @@ test('the examples load with no problem, and their hooks answer as the README sa
   cpSync(examples, join(home, 'cmods', 'modes'), { recursive: true })
   const engine = createEngine(openStore(':memory:'), createCatalog(home))
   const session = { id: 's1', projectRoot: temporaryFolder(), cwd: '/', defaultMode: '' }
-  const bash = (command: string) => engine.event({ session, event: 'PreToolUse', input: { tool_name: 'Bash', tool_input: { command }, tool_use_id: 'toolu_1' } })
+  const bash = (command: string) => engine.event({ session, event: 'PreToolUse', input: { tool_name: 'Bash', tool_input: { command }, tool_use_id: 'toolu_1' }, commands: [command.split(' ')] })
 
   const definitions = await engine.definitions(session.projectRoot)
-  await engine.event({ session, event: 'SessionStart', input: { source: 'startup' } })
+  await engine.event({ session, event: 'SessionStart', input: { source: 'startup' }, commands: [] })
 
   expect(definitions.problems).toEqual([])
   expect(definitions.modes.map(({ name }) => name)).toEqual(['propose', 'build', 'review', 'commit'])

@@ -4,15 +4,26 @@
   "type": "module",
   "cmod": {
     "program": "claude-modes",
-    "install": "./setup/install.sh",
-    "uninstall": "./setup/uninstall.sh"
+    "approve": true,
+    "hotkeys": {
+      "cycle": {
+        "title": "Switch to the next mode",
+        "default": "shift+tab"
+      }
+    }
   },
-  "files": ["hooks", "setup", "src", "skills", "types", "tsconfig.json"],
+  "files": [
+    "hooks",
+    "src",
+    "skills",
+    "types"
+  ],
   "scripts": {
     "test": "bun test",
     "check": "cmod check"
   },
   "dependencies": {
-    "@cmodjs/core": "^0.1.8"
+    "@cmodjs/core": "^8.3.2",
+    "yaml": "2"
   }
 }

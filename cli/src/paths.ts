@@ -13,4 +13,3 @@ export function configHome(env: NodeJS.ProcessEnv = process.env): string {
 
 export const databaseOf = (root: string) => join(root, 'sessions.db')
 
-export const socketOf = (root: string, pid: number) => join(root, 'run', `${pid}.sock`)

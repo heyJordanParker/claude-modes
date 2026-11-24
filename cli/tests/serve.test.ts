@@ -5,30 +5,34 @@ import { proposeMode, temporaryFolder, writeFiles } from './fixtures.ts'
 
 const main = join(import.meta.dir, '..', 'src', 'main.ts')
 
-test('serve prints its socket, answers over it, and removes it when stopped', async () => {
+test('serve prints its local address, and answers only the mod that holds its token', async () => {
   const home = temporaryFolder()
   const store = temporaryFolder()
   writeFiles(home, { 'cmods/modes/propose.md': proposeMode })
-  const child = Bun.spawn(['bun', main, 'serve'], { env: { ...process.env, CLAUDE_CONFIG_DIR: home, CLAUDE_MODES_HOME: store }, stdout: 'pipe' })
+  const child = Bun.spawn(['bun', main, 'serve'], { env: { ...process.env, CLAUDE_CONFIG_DIR: home, CLAUDE_MODES_HOME: store, CLAUDE_MODES_TOKEN: 'token-1' }, stdout: 'pipe' })
   const reader = child.stdout.getReader()
-  const first = new TextDecoder().decode((await reader.read()).value).trim()
-  const socketPath = first.replace(/^unix:/, '')
+  const address = new TextDecoder().decode((await reader.read()).value).trim()
+  const post = (path: string, body: unknown, token = 'token-1') => fetch(`http://${address}${path}`, { method: 'POST', headers: { authorization: `Bearer ${token}` }, body: JSON.stringify(body) })
 
-  const answer = await fetch('http://localhost/event', {
-    method: 'POST',
-    unix: socketPath,
-    body: JSON.stringify({ session: { id: 's1', projectRoot: temporaryFolder(), cwd: '/', defaultMode: '' }, event: 'SessionStart', input: { source: 'startup' } }),
-  })
-  const missing = await fetch('http://localhost/nothing', { method: 'POST', unix: socketPath, body: '{}' })
+  const answer = await post('/event', { session: { id: 's1', projectRoot: temporaryFolder(), cwd: '/', defaultMode: '' }, event: 'SessionStart', input: { source: 'startup' }, commands: [] })
+  const missing = await post('/nothing', {})
+  const stranger = await post('/event', {}, 'guess')
 
-  expect(first).toBe(`unix:${join(store, 'run', `${child.pid}.sock`)}`)
+  expect(address).toMatch(/^127\.0\.0\.1:\d+$/)
   expect(await answer.json()).toMatchObject({ modes: { main: 'propose', agents: {} } })
   expect(missing.status).toBe(404)
+  expect(stranger.status).toBe(401)
   expect(existsSync(join(store, 'sessions.db'))).toBe(true)
 
   child.kill('SIGTERM')
-  await child.exited
-  expect(existsSync(socketPath)).toBe(false)
+  expect(await child.exited).toBe(0)
+})
+
+test('serve refuses to start without a token, so nothing but its mod reaches the store', () => {
+  const run = Bun.spawnSync(['bun', main, 'serve'], { env: { ...process.env, CLAUDE_MODES_HOME: temporaryFolder(), CLAUDE_MODES_TOKEN: '' } })
+
+  expect(run.exitCode).toBe(2)
+  expect(run.stderr.toString()).toContain('sets CLAUDE_MODES_TOKEN')
 })
 
 test('the command line lists, shows, and moves sessions between modes', async () => {

@@ -18,10 +18,9 @@ Modes reads plain files and applies a saved change on the next event. Nothing ne
 ```markdown
 ---
 order: 2
-description: one line for the panel
+description: one line for the Modes view
 deny:
-  - write: "**"
-    except: ["docs/**"]
+  - write: ["**", "!docs/**"]
     reason: why the mode refuses it
 ask:
   - command: git push
@@ -35,7 +34,7 @@ The rules Claude reads while the mode lasts, in plain sentences.
 
 - Every key is optional. The keys are `order`, `description`, `deny`, `ask`, `lasts`, and `after`, and no other.
 - Each rule names exactly one target: `command`, `read`, `write`, `fetch`, `subagent`, or `tool`. A pattern is a string or a list.
-- `except` works on `read`, `write`, and `fetch` rules.
+- A pattern that starts with `!` leaves calls out, and a rule needs one pattern without `!`.
 - `after` rules name one target and `enter`, a mode that a file defines.
 
 ## A hook script
@@ -56,7 +55,12 @@ export default defineHook({
 
 ## Enter a mode from a Skill or an Agent
 
-Add `mode: <name>` to the Skill's or Agent's frontmatter.
+Add the mode under `metadata` in the Skill's or Agent's frontmatter:
+
+```yaml
+metadata:
+  modes.mode: build
+```
 
 ## Check the work
 

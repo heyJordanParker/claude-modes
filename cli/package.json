@@ -1,6 +1,6 @@
 {
   "name": "claude-modes",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "The Modes program: the session store, mode and hook definitions, and the claude-modes command.",
   "license": "MIT",
   "private": true,
@@ -22,12 +22,8 @@
     "build": "bun run build",
     "output": "dist"
   },
-  "dependencies": {
-    "shell-quote": "^1.8.3"
-  },
   "devDependencies": {
     "@types/bun": "^1.2.21",
-    "@types/shell-quote": "^1.7.5",
     "typescript": "^5.9.2"
   }
 }

@@ -3,7 +3,6 @@ import type { Gate, ModeSpec, Patterns, Target, Transition } from '../../../src/
 import { readFrontmatter } from './frontmatter.ts'
 
 const targetKeys = ['command', 'read', 'write', 'fetch', 'subagent', 'tool'] as const
-const exceptKeys = new Set(['read', 'write', 'fetch'])
 const modeKeys = new Set(['order', 'description', 'deny', 'ask', 'lasts', 'after'])
 
 export const modeName = /^[A-Za-z0-9_-]{1,64}$/
@@ -51,21 +50,22 @@ function targetOf(rule: Record<string, unknown>, where: string): Target & { read
 }
 
 function patternsOf(value: unknown, where: string): Patterns {
-  if (typeof value === 'string' && value !== '') return value
-  if (Array.isArray(value) && value.length > 0 && value.every((item) => typeof item === 'string' && item !== '')) return value as string[]
-  throw new Error(`${where} is not a pattern. Write one pattern, or a list of them.`)
+  const patterns = typeof value === 'string' ? [value] : value
+  if (!Array.isArray(patterns) || patterns.length === 0 || !patterns.every((item) => typeof item === 'string' && item !== '' && item !== '!')) {
+    throw new Error(`${where} is not a pattern. Write one pattern, or a list of them.`)
+  }
+  if (patterns.every((item: string) => item.startsWith('!'))) throw new Error(`${where} only leaves calls out. Add a pattern without "!" for them to leave out of, such as ["**", "!docs/**"].`)
+  return value as Patterns
 }
 
 function gateOf(rule: Record<string, unknown>, where: string): Gate {
   const { key, ...target } = targetOf(rule, where)
   for (const field of Object.keys(rule)) {
-    if (field !== key && field !== 'except' && field !== 'reason') throw new Error(`${where} has "${field}". A rule holds one target, and may add except and reason.`)
+    if (field !== key && field !== 'reason') throw new Error(`${where} has "${field}". A rule holds one target, and may add reason.`)
   }
-  const except = rule['except']
-  if (except !== undefined && !exceptKeys.has(key)) throw new Error(`${where} has except on ${key}. except works on read, write, and fetch.`)
   const reason = rule['reason']
   if (reason !== undefined && typeof reason !== 'string') throw new Error(`${where}.reason is not text.`)
-  return { ...target, ...(except === undefined ? {} : { except: patternsOf(except, `${where}.except`) }), ...(reason === undefined ? {} : { reason }) }
+  return { ...target, ...(reason === undefined ? {} : { reason }) }
 }
 
 function transitionOf(rule: Record<string, unknown>, where: string): Transition {

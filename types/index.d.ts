@@ -20,8 +20,18 @@ export type Modes = {
   hideTab(input: Record<string, never>): Promise<Record<string, never>>
 }
 
+export type RuleSeverity = 'error' | 'warn' | 'ask'
+export type ListedRule = { readonly id: string; readonly description: string; readonly severity: RuleSeverity; readonly metadata: Readonly<Record<string, unknown>> }
+export type RulebookCheck = { readonly path: string; readonly session: string; readonly task?: string; readonly agentType?: string; readonly tool?: string; readonly rules: readonly ListedRule[] }
+
 declare module 'claude-code' {
   interface CmodDependencies {
     modes: Modes
+  }
+  interface CmodInterfaces {
+    'rulebook/Rules': {
+      methods: { rules(folder: string): readonly ListedRule[] }
+      events: { Check: RulebookCheck }
+    }
   }
 }

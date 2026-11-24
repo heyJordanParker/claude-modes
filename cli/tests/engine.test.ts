@@ -11,37 +11,40 @@ function setUp(files: Readonly<Record<string, string>> = {}) {
   const store = openStore(':memory:')
   const engine = createEngine(store, createCatalog(home))
   const session: SessionRef = { id: 'session-1', projectRoot: temporaryFolder(), cwd: '/work/app', defaultMode: '' }
-  const fire = (event: string, input: Record<string, unknown> = {}) => engine.event({ session, event, input })
+  const fire = (event: string, input: Record<string, unknown> = {}, commands: string[][] = []) => engine.event({ session, event, input, commands })
   return { home, store, engine, session, fire }
 }
 
-test('a session starts in the first mode and reads its rules', async () => {
+test('a session starts in the first mode, and the mod, not the program, gives Claude its rules', async () => {
   const { fire } = setUp()
 
   const answer = await fire('SessionStart', { source: 'startup' })
 
   expect(answer.modes).toEqual({ main: 'propose', agents: {} })
-  expect(answer.effects).toEqual([{ context: 'Mode: propose (plan before you build)\n\nYou are proposing. You change no file and make no commit.' }])
+  expect(answer.effects).toEqual([])
 })
 
 test('a session starts in the default mode, or in the mode its Agent names', async () => {
   const fromDefault = setUp()
-  const answer = await fromDefault.engine.event({ session: { ...fromDefault.session, defaultMode: 'build' }, event: 'SessionStart', input: { source: 'startup' } })
+  const answer = await fromDefault.engine.event({ session: { ...fromDefault.session, defaultMode: 'build' }, event: 'SessionStart', input: { source: 'startup' }, commands: [] })
   expect(answer.modes.main).toBe('build')
 
-  const fromAgent = setUp({ 'agents/builder.md': '---\nmode: build\n---\n' })
+  const fromAgent = setUp({ 'agents/builder.md': '---\nmetadata:\n  modes.mode: build\n---\n' })
   expect((await fromAgent.fire('SessionStart', { source: 'startup', agent_type: 'builder' })).modes.main).toBe('build')
 })
 
-test('a Skill that names a mode enters it, and Claude reads the rules once', async () => {
-  const { fire } = setUp({ 'skills/ship/SKILL.md': '---\nmode: build\n---\nShip it.\n' })
+test('a Skill that names a mode enters it, and a subagent reads the new rules once', async () => {
+  const { fire } = setUp({ 'skills/ship/SKILL.md': '---\nmetadata:\n  modes.mode: build\n---\nShip it.\n' })
   await fire('SessionStart', { source: 'startup' })
 
-  const loaded = await fire('PostToolUse', { tool_name: 'Skill', tool_input: { skill: 'ship' }, tool_use_id: 'toolu_1' })
-  const next = await fire('PostToolUse', { tool_name: 'Read', tool_input: {}, tool_use_id: 'toolu_2' })
+  const inMain = await fire('PostToolUse', { tool_name: 'Skill', tool_input: { skill: 'ship' }, tool_use_id: 'toolu_1' })
+  await fire('SubagentStart', { agent_id: 'agent-x', agent_type: 'general-purpose' })
+  const inAgent = await fire('PostToolUse', { tool_name: 'Skill', tool_input: { skill: 'ship' }, tool_use_id: 'toolu_2', agent_id: 'agent-x' })
+  const next = await fire('PostToolUse', { tool_name: 'Read', tool_input: {}, tool_use_id: 'toolu_3', agent_id: 'agent-x' })
 
-  expect(loaded.modes.main).toBe('build')
-  expect(loaded.effects).toEqual([{ context: 'Mode: build\n\nYou are building.' }])
+  expect(inMain.modes.main).toBe('build')
+  expect(inMain.effects).toEqual([])
+  expect(inAgent.effects).toEqual([{ context: 'Mode: build\n\nYou are building.' }])
   expect(next.effects).toEqual([])
 })
 
@@ -54,7 +57,7 @@ test('a mode that lasts a turn returns to the mode before it when the turn ends'
   const prompt = await fire('UserPromptSubmit', { prompt: 'commit it' })
   const stop = await fire('Stop', { stop_hook_active: false })
 
-  expect(prompt.effects).toEqual([{ context: 'Mode: commit\n\nCommit the work, then stop.' }])
+  expect(prompt.modes.main).toBe('commit')
   expect(stop.modes.main).toBe('build')
   expect(engine.entries('session-1').map(({ mode, cause }) => [mode, cause.kind])).toEqual([
     ['propose', 'start'],
@@ -65,7 +68,7 @@ test('a mode that lasts a turn returns to the mode before it when the turn ends'
 })
 
 test('a subagent starts in the mode its Agent names and reads that mode', async () => {
-  const { fire } = setUp({ 'agents/explorer.md': '---\nmode: propose\n---\n' })
+  const { fire } = setUp({ 'agents/explorer.md': '---\nmetadata:\n  modes.mode: propose\n---\n' })
   await fire('SessionStart', { source: 'startup', agent_type: 'none' })
 
   const answer = await fire('SubagentStart', { agent_id: 'agent-x', agent_type: 'explorer' })
@@ -82,14 +85,15 @@ test('a hook script runs only in its modes, and an effect its event cannot take 
   })
   await fire('SessionStart', { source: 'startup' })
   const restore = { tool_name: 'Bash', tool_input: { command: 'cd app && git restore src/a.ts' }, tool_use_id: 'toolu_1' }
+  const commands = [['cd', 'app'], ['git', 'restore', 'src/a.ts']]
 
-  const inPropose = await fire('PreToolUse', restore)
+  const inPropose = await fire('PreToolUse', restore, commands)
   await engine.enter({ session, mode: 'build', agentId: undefined, cause: { kind: 'command', name: 'build' } })
-  const inBuild = await fire('PreToolUse', restore)
+  const inBuild = await fire('PreToolUse', restore, commands)
   await fire('SessionEnd', {})
 
   expect(inPropose.effects).toEqual([])
-  expect(inBuild.effects).toEqual([{ deny: 'Fix forward.' }, { context: 'Mode: build\n\nYou are building.' }])
+  expect(inBuild.effects).toEqual([{ deny: 'Fix forward.' }])
   expect((await engine.definitions(session.projectRoot)).problems.map(({ message }) => message)).toContain('it answered deny on SessionEnd, which takes no effect.')
 })
 

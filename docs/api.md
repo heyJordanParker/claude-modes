@@ -1,9 +1,9 @@
 # The API
 
-Another mod calls Modes through cmod's `mod.dependencies`. List Modes in your mod's `.claude-plugin/plugin.json`, and Claude Code installs it with your mod:
+Another mod calls Modes through cmod's `mod.dependencies`. List Modes in your mod's `.claude-plugin/plugin.json` with the versions you tested, and Claude Code installs it with your mod and turns your mod off with a clear error if an update breaks the range:
 
 ```json
-"dependencies": ["cmod", "modes"]
+"dependencies": ["cmod", { "name": "modes", "version": "^1.0.0" }]
 ```
 
 Claude Code then lays Modes' types beside your mod's, so each call is typed.
@@ -13,10 +13,10 @@ Claude Code then lays Modes' types beside your mod's, so each call is typed.
 | Method | Input | Answer |
 | --- | --- | --- |
 | `current` | `{ agentId? }` | `{ mode }`: the agent's mode, else the session's, or `null` |
-| `enter` | `{ mode, agentId?, by }` | `{ mode }`. `by` names your mod in the session's history. |
+| `enter` | `{ mode, agentId?, by }` | `{ mode }`. `by` names your mod in the session's mode entries. |
 | `modes` | `{}` | `{ modes }`: each mode's `name`, `description`, and `order` |
 | `entries` | `{}` | `{ entries }`: every mode the session entered, with its cause and time |
-| `showTab` | `{ title, markdown }` | `{}`. Fills the panel's first tab and shows it. Markdown past 10000 characters is cut. |
+| `showTab` | `{ title, markdown }` | `{}`. Fills the Modes view's first tab and shows it. Markdown past 10000 characters is cut. |
 | `hideTab` | `{}` | `{}`. Removes the tab. |
 
 `enter` rejects a mode no file defines, naming the modes there are.
@@ -40,4 +40,4 @@ export const review = defineMod({
 })
 ```
 
-A UI that needs more than Markdown, such as its own pane or a band above the prompt, belongs in your mod, which reads the mode through `current`.
+A UI that needs more than Markdown, such as its own view or a widget above the prompt, belongs in your mod, which reads the mode through `current`.

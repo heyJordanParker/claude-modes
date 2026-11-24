@@ -1,11 +1,10 @@
-import type { RenderElement } from 'claude-code'
 import type { Mod } from '../../node_modules/@cmodjs/core/mod.js'
-import { Box, Button, Select, Text } from '../../node_modules/@cmodjs/core/ui/elements.js'
+import { Box, Button, Text } from '../../node_modules/@cmodjs/core/ui/elements.js'
 import { describe } from '../jobs/mode-gates.js'
 import type { ModeSpec } from '../protocol.js'
 import type { ModesState } from '../state.js'
 
-export function SettingsTab({ mod, enter }: { readonly mod: Mod<ModesState>; readonly enter: (mode: string) => void }): RenderElement {
+export function SettingsTab({ mod, enter, defaultMode }: { readonly mod: Mod<ModesState>; readonly enter: (mode: string) => void; readonly defaultMode: string }): JSX.Element {
   const { definitions, modes, failure } = mod.state.memory
   if (definitions === null) return <Text dimColor>{failure === '' ? 'Loading the modes…' : failure}</Text>
 
@@ -14,17 +13,14 @@ export function SettingsTab({ mod, enter }: { readonly mod: Mod<ModesState>; rea
       <Box flexDirection="column">
         <Text bold>Modes</Text>
         {definitions.modes.length === 0 ? <Text dimColor>No modes yet. Add a Markdown file to one of the folders below, such as review.md.</Text> : null}
-        {definitions.modes.map((mode, index) => (
-          <ModeLine mode={mode} isCurrent={mode.name === modes.main} hotkey={index < 9 ? `${index + 1}` : undefined} enter={enter} />
+        {definitions.modes.map((mode) => (
+          <ModeLine mode={mode} isCurrent={mode.name === modes.main} enter={enter} />
         ))}
       </Box>
-      <Select
-        key="default-mode"
-        label="New sessions start in"
-        value={mod.state.global.defaultMode}
-        options={[{ value: '', label: 'the first mode' }, ...definitions.modes.map(({ name }) => ({ value: name, label: name }))]}
-        onSelect={(value) => { mod.state.global.defaultMode = value }}
-      />
+      <Box flexDirection="column">
+        <Text>{`New sessions start in ${defaultMode === '' ? 'the first mode' : defaultMode}.`}</Text>
+        <Text dimColor wrap="wrap">Change it under modes in /config, or for a project in .claude/cmods/modes/options.json.</Text>
+      </Box>
       <Box flexDirection="column">
         <Text bold>Hook scripts</Text>
         {definitions.hooks.length === 0 ? <Text dimColor>None. Add a .ts file to hooks/ in one of the folders below.</Text> : null}
@@ -53,7 +49,7 @@ export function SettingsTab({ mod, enter }: { readonly mod: Mod<ModesState>; rea
   )
 }
 
-function ModeLine({ mode, isCurrent, hotkey, enter }: { readonly mode: ModeSpec; readonly isCurrent: boolean; readonly hotkey: string | undefined; readonly enter: (mode: string) => void }): RenderElement {
+function ModeLine({ mode, isCurrent, enter }: { readonly mode: ModeSpec; readonly isCurrent: boolean; readonly enter: (mode: string) => void }): JSX.Element {
   const facts = [
     ...mode.deny.map((gate) => `refuses ${describe(gate)}`),
     ...mode.ask.map((gate) => `asks before ${describe(gate)}`),
@@ -63,7 +59,7 @@ function ModeLine({ mode, isCurrent, hotkey, enter }: { readonly mode: ModeSpec;
   return (
     <Box flexDirection="column">
       <Box gap={1}>
-        <Button key={`enter:${mode.name}`} {...(hotkey === undefined ? {} : { hotkey })} variant={isCurrent ? 'primary' : 'secondary'} label={mode.name} onPress={() => enter(mode.name)} />
+        <Button key={`enter:${mode.name}`} variant={isCurrent ? 'primary' : 'secondary'} label={mode.name} onPress={() => enter(mode.name)} />
         <Text dimColor wrap="truncate-end">{mode.description}</Text>
       </Box>
       {facts.map((fact) => (

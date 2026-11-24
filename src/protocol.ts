@@ -10,7 +10,6 @@ export type Target = {
 }
 
 export type Gate = Target & {
-  readonly except?: Patterns
   readonly reason?: string
 }
 
@@ -90,6 +89,11 @@ export type EventRequest = {
   readonly session: SessionRef
   readonly event: string
   readonly input: Readonly<Record<string, unknown>>
+  readonly commands: readonly (readonly string[])[]
+}
+
+export function rulesOf(mode: ModeSpec): string {
+  return [`Mode: ${mode.name}${mode.description === '' ? '' : ` (${mode.description})`}`, mode.rules].filter((part) => part !== '').join('\n\n')
 }
 
 export type EventAnswer = {

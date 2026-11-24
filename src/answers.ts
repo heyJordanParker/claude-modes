@@ -1,22 +1,15 @@
-import type { HookAnswer, ModEvent } from '../node_modules/@cmodjs/core/mod.js'
 import type { Effect } from './protocol.js'
 
-export function answerOf(event: ModEvent, effects: readonly Effect[]): HookAnswer | undefined {
-  const denies = effects.flatMap((effect) => ('deny' in effect ? [effect.deny] : []))
-  const asks = effects.flatMap((effect) => ('ask' in effect ? [effect.ask] : []))
-  const contexts = effects.flatMap((effect) => ('context' in effect ? [effect.context] : []))
-  const blocks = effects.flatMap((effect) => ('block' in effect ? [effect.block] : []))
+export type Answers = {
+  readonly refuse: string | undefined
+  readonly ask: string | undefined
+  readonly note: string | undefined
+}
 
-  const decision =
-    denies.length > 0
-      ? { permissionDecision: 'deny' as const, permissionDecisionReason: denies.join('\n') }
-      : asks.length > 0
-        ? { permissionDecision: 'ask' as const, permissionDecisionReason: asks.join('\n') }
-        : {}
-  const output = { ...decision, ...(contexts.length === 0 ? {} : { additionalContext: contexts.join('\n\n') }) }
-  const answer: HookAnswer = {
-    ...(blocks.length === 0 ? {} : { decision: 'block' as const, reason: blocks.join('\n') }),
-    ...(Object.keys(output).length === 0 ? {} : { hookSpecificOutput: { hookEventName: event, ...output } }),
+export function answersOf(effects: readonly Effect[]): Answers {
+  const texts = (keys: readonly string[], separator: string) => {
+    const found = effects.flatMap((effect) => Object.entries(effect).flatMap(([key, text]) => (keys.includes(key) ? [String(text)] : [])))
+    return found.length === 0 ? undefined : found.join(separator)
   }
-  return Object.keys(answer).length === 0 ? undefined : answer
+  return { refuse: texts(['deny', 'block'], '\n'), ask: texts(['ask'], '\n'), note: texts(['context'], '\n\n') }
 }

@@ -32,16 +32,16 @@ You are reviewing. Read the diff, run the tests, and list every problem you find
 
 | Key | Value | Default |
 | --- | --- | --- |
-| `order` | A number. `/mode` and the band move through the modes from the lowest. Ties sort by name. | after every numbered mode |
+| `order` | A number. `/mode`, shift+tab, and the Mode widget move through the modes from the lowest. Ties sort by name. | after every numbered mode |
 | `description` | One line of text. | none |
 | `deny` | A list of rules. A matching call is refused. | none |
 | `ask` | A list of rules. Claude Code asks you before a matching call runs. | none |
 | `lasts` | `turn`: the mode ends with the turn it ran in, and the session returns to the mode before it. | the mode lasts until another is entered |
 | `after` | A list of transitions. Once a matching call succeeds, the session enters the named mode. | none |
 
-The body is the mode's rules. Claude reads them, headed `Mode: <name> (<description>)`, when a session starts, after a compaction, and on the next event after the mode is entered.
+The body is the mode's rules. Claude reads them, headed `Mode: <name> (<description>)`, when the conversation starts, and again as a note when the session enters the mode. A subagent reads its own mode's rules when it starts.
 
-A key Modes does not know is a problem. `claude-modes check` and the panel's Settings tab list every problem with its fix.
+A key Modes does not know is a problem. `claude-modes check` and the Modes view list every problem with its fix.
 
 ## Rules
 
@@ -58,10 +58,9 @@ A rule names exactly one target. The patterns follow cmod's permission rules.
 
 A pattern is one string or a list. A `read` or `write` pattern is relative to the project, `~/` starts at your home folder, and `/` starts at the root.
 
-A rule may also hold:
+A pattern that starts with `!` leaves calls out. `write: ["**", "!docs/**"]` refuses every edit outside `docs/`, and `command: ["git", "!git status", "!git log"]` refuses every git command but those two. A rule needs one pattern without `!`.
 
-- `except`: patterns the rule leaves out, for `read`, `write`, and `fetch`. `write: "**"` with `except: ["docs/**"]` refuses every edit outside `docs/`.
-- `reason`: text added to the refusal Claude reads, after `<mode> mode refuses <target>.`
+A rule may also hold `reason`: text added to the refusal Claude reads, after `<mode> mode refuses <target>.`
 
 ## Transitions
 
@@ -80,10 +79,11 @@ When a call matches and succeeds, the session enters `propose`, and Claude reads
 - `/mode` moves to the next mode. `/mode <name>` enters that mode.
 - `/<name>` enters that mode. Modes adds the command when it first sees the file. A name that another command or Skill already uses is not added; use `/mode <name>`.
 - A press on `mode: <name>` above the prompt moves to the next mode.
-- A Skill with `mode: <name>` in its frontmatter enters the mode when it loads, typed as `/<skill>` or called by Claude.
-- An Agent with `mode: <name>` starts there: a session run as that Agent, or a subagent of that type.
+- A Skill with `modes.mode: <name>` in its frontmatter's `metadata` enters the mode when it loads, typed as `/<skill>` or called by Claude.
+- An Agent with `modes.mode: <name>` in its `metadata` starts there: a session run as that Agent, or a subagent of that type.
+- shift+tab moves to the next mode.
 - A hook script answers `{ enter: '<name>' }`.
 - Another mod calls `mod.dependencies.modes.enter`.
 - `claude-modes set <session> mode <name>` from a terminal.
 
-A new session starts in the Agent's mode, else in the mode Settings names, else in the first mode. A subagent whose Agent names no mode works in the session's mode.
+A new session starts in the Agent's mode, else in the **Starting mode** option, else in the first mode. Set the option under modes in `/config`, or for a project in `.claude/cmods/modes/options.json` as `{ "defaultMode": "<name>" }`. A subagent whose Agent names no mode works in the session's mode.

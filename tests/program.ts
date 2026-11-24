@@ -1,8 +1,10 @@
-import type { HookStream, HttpResponse, ProcessSpawnChunk, ProcessSpawnResult } from 'claude-code'
 import { mkdirSync, mkdtempSync, realpathSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { Fakes } from '../node_modules/@cmodjs/core/testing.js'
+
+type Spawned = ReturnType<NonNullable<Fakes['process']['spawn']>>
+type Fetched = Awaited<ReturnType<NonNullable<Fakes['http']['fetch']>>>
 
 const main = join(import.meta.dir, '..', 'cli', 'src', 'main.ts')
 
@@ -27,23 +29,22 @@ export function useRealProgram(fakes: Fakes, configHome: string): void {
   const env = { ...process.env, CLAUDE_CONFIG_DIR: configHome, CLAUDE_MODES_HOME: temporaryFolder() }
 
   fakes.process.spawn = (request) => {
-    const child = Bun.spawn(['bun', main, ...request.argv.slice(1)], { env, stdout: 'pipe', stderr: 'ignore' })
+    const child = Bun.spawn(['bun', main, ...request.argv.slice(1)], { env: { ...env, ...request.env }, stdout: 'pipe', stderr: 'ignore' })
     children.push(child)
-    async function* pieces(): AsyncGenerator<ProcessSpawnChunk, ProcessSpawnResult> {
-      for await (const chunk of child.stdout) yield { stream: 'stdout', text: new TextDecoder().decode(chunk) }
+    async function* pieces() {
+      for await (const chunk of child.stdout) yield { stream: 'stdout' as const, text: new TextDecoder().decode(chunk) }
       return { code: await child.exited, signal: null }
     }
-    return Object.assign(pieces(), { result: child.exited.then((code) => ({ code, signal: null })) }) as unknown as HookStream<ProcessSpawnChunk, ProcessSpawnResult>
+    return Object.assign(pieces(), { result: child.exited.then((code) => ({ code, signal: null })) }) as unknown as Spawned
   }
 
   fakes.http.fetch = async (url, init) => {
     const response = await fetch(url, {
       method: init?.method ?? 'GET',
       ...(init?.headers === undefined ? {} : { headers: init.headers }),
-      ...(init?.body === undefined ? {} : { body: init.body }),
-      ...(init?.socketPath === undefined ? {} : { unix: init.socketPath }),
+      ...(init?.body === undefined ? {} : { body: typeof init.body === 'string' ? init.body : Buffer.from(init.body.base64, 'base64') }),
     })
-    const answer: HttpResponse = { status: response.status, ok: response.ok, headers: Object.fromEntries(response.headers), text: await response.text() }
+    const answer: Fetched = { status: response.status, ok: response.ok, headers: Object.fromEntries(response.headers), text: await response.text() }
     return answer
   }
 }
@@ -53,8 +54,7 @@ export const modeFiles = {
 order: 1
 description: plan before you build
 deny:
-  - write: "**"
-    except: ["docs/plans/**"]
+  - write: ["**", "!docs/plans/**"]
     reason: Write plans only.
   - command: git commit
 ---

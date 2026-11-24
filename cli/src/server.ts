@@ -8,7 +8,6 @@ export function createHandler(engine: Engine): (request: Request) => Promise<Res
     '/event': (body) => engine.event(body as EventRequest),
     '/enter': (body) => engine.enter(body as EnterRequest),
     '/definitions': (body) => engine.definitions(String(body['projectRoot'])),
-    '/history': (body) => ({ history: engine.history(String(body['sessionId'])) ?? null }),
     '/entries': (body) => ({ entries: engine.entries(String(body['sessionId'])) }),
   }
 

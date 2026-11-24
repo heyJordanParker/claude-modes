@@ -33,7 +33,7 @@ export default defineHook({
 
 ## Events and effects
 
-| Event | `input` beyond `session_id`, `cwd`, and `hook_event_name` | Effects it takes |
+| Event | `input` beyond `session_id`, `transcript_path`, `cwd`, and `hook_event_name` | Effects it takes |
 | --- | --- | --- |
 | `SessionStart` | `source`: `startup`, `resume`, `clear`, `compact`, or `fork` | `context`, `enter` |
 | `UserPromptSubmit` | `prompt` | `context`, `block`, `enter` |
@@ -42,7 +42,7 @@ export default defineHook({
 | `PostToolUseFailure` | the same, and `error` | `context`, `enter` |
 | `Stop` | `stop_hook_active`, `last_assistant_message` | `context`, `block`, `enter` |
 | `SubagentStart` | `agent_id`, `agent_type` | `context` |
-| `SubagentStop` | `agent_id`, `agent_type`, `last_assistant_message` | `context`, `block` |
+| `SubagentStop` | `agent_id`, `agent_type`, `stop_hook_active`, `last_assistant_message` | `context`, `block` |
 | `PreCompact` | `trigger` | none |
 | `SessionEnd` | `reason` | none |
 | `Notification` | `message` | none |
@@ -57,7 +57,7 @@ export default defineHook({
 | `{ block: 'reason' }` | The prompt is blocked, or Claude keeps working instead of stopping. |
 | `{ enter: 'mode' }` | The agent that raised the event enters the mode. |
 
-An effect the event does not take is dropped, and the panel's Settings tab lists it as a problem.
+An effect the event does not take is dropped, and the Modes view lists it as a problem.
 
 ## context
 
@@ -70,11 +70,11 @@ type HookContext = {
 }
 ```
 
-`commands` holds each command of a Bash call, split into words the way a shell splits them, so `cd app && git restore a.ts` is `[['cd', 'app'], ['git', 'restore', 'a.ts']]`. It is empty for any other tool.
+`commands` holds each command of a Bash call, read the way cmod reads one for its permission rules, so `cd app && git restore a.ts` is `[['cd', 'app'], ['git', 'restore', 'a.ts']]`. It holds the commands inside `sudo`, `bash -c`, `$(…)`, and heredocs too, and splits a cluster of flags such as `-rf` into `-r` and `-f`. It is empty for any other tool.
 
 ## When a script fails
 
-A script that throws, or runs past 5 seconds, is listed under Problems in the panel and in `claude-modes check`. On `PreToolUse` its failure refuses the call with `The <name> hook failed, so it denies the call: <error>`. On every other event the event goes on.
+A script that throws, or runs past 5 seconds, is listed under Problems in the Modes view and in `claude-modes check`. On `PreToolUse` its failure refuses the call with `The <name> hook failed, so it denies the call: <error>`. On every other event the event goes on.
 
 A script that does not load, such as one with no default export or an unknown event, is skipped and listed under Problems.
 

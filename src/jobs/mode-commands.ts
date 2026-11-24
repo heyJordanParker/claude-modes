@@ -1,5 +1,5 @@
-import type { Job } from '../../node_modules/@cmodjs/core/mod.js'
-import { messageOf } from '../../node_modules/@cmodjs/core/mod.js'
+import { slashCommand } from '../../node_modules/@cmodjs/core/jobs/slash-command.js'
+import { messageOf, type Job } from '../../node_modules/@cmodjs/core/mod.js'
 import type { Connection } from '../connection.js'
 import type { Definitions } from '../protocol.js'
 import type { ModesState } from '../state.js'
@@ -8,6 +8,8 @@ export type ModeCommands = {
   sync(definitions: Definitions): void
 }
 
+const ownCommands = new Set(['mode', 'modes'])
+
 export function nextMode(definitions: Definitions | null, current: string | undefined): string | undefined {
   const names = definitions?.modes.map(({ name }) => name) ?? []
   const index = current === undefined ? -1 : names.indexOf(current)
@@ -15,45 +17,35 @@ export function nextMode(definitions: Definitions | null, current: string | unde
 }
 
 export function modeCommands(connection: Connection): Job<ModeCommands, ModesState> {
-  return ({ mod, claude, on, announce }) => {
-    const registered = new Map<string, string>()
-    const requested = new Set<string>()
-
-    const enter = async (mode: string, command: string) => {
-      try {
-        await connection.enter(mode, undefined, { kind: 'command', name: command })
-        return {}
-      } catch (error) {
-        return { text: `/${command} failed: ${messageOf(error)}` }
-      }
-    }
-
-    void claude.command.register({ name: 'mode', description: 'Switch to the next mode, or to the mode you name', argumentHint: '[mode]', immediate: true }).then(
-      ({ command }) => void registered.set(command, ''),
-      (error: unknown) => claude.ui.log(`${mod.name}: /mode is not added: ${messageOf(error)}`),
-    )
-    announce('/mode')
-
-    on('command.run', async (e, next) => {
-      if (!registered.has(e.command)) return next(e)
-      const named = registered.get(e.command) ?? ''
-      if (named !== '') return enter(named, named)
-      const wanted = e.args.trim()
-      const mode = wanted === '' ? nextMode(mod.state.memory.definitions, mod.state.memory.modes.main) : wanted
-      if (mode === undefined) return { text: 'No modes yet. Add a mode file to ~/.claude/cmods/modes/, such as review.md.' }
-      return enter(mode, 'mode')
-    })
+  return ({ mod, announce }) => {
+    const added = new Set<string>()
+    announce('a command for each mode')
 
     return {
       sync(definitions) {
         for (const mode of definitions.modes) {
-          if (requested.has(mode.name) || mode.name === 'mode') continue
-          requested.add(mode.name)
-          const description = mode.description === '' ? `Switch to ${mode.name} mode` : `Switch to ${mode.name} mode: ${mode.description}`
-          claude.command.register({ name: mode.name, description, immediate: true }).then(
-            ({ command }) => void registered.set(command, mode.name),
-            (error: unknown) => claude.ui.log(`${mod.name}: /${mode.name} is not added: ${messageOf(error)}`, { to: 'debug' }),
-          )
+          if (added.has(mode.name) || ownCommands.has(mode.name)) continue
+          added.add(mode.name)
+          try {
+            mod.use(
+              slashCommand({
+                name: mode.name,
+                description: mode.description === '' ? `Switch to ${mode.name} mode` : `Switch to ${mode.name} mode: ${mode.description}`,
+                immediate: true,
+                reply: async () => {
+                  if (!mod.state.memory.definitions?.modes.some(({ name }) => name === mode.name)) return `/${mode.name} no longer applies: its mode file is gone.`
+                  try {
+                    await connection.enter(mode.name, undefined, { kind: 'command', name: mode.name })
+                    return undefined
+                  } catch (error) {
+                    return `/${mode.name} failed: ${messageOf(error)}`
+                  }
+                },
+              }),
+            )
+          } catch (error) {
+            mod.log(`/${mode.name} is not added: ${messageOf(error)}`, { level: 'warning' })
+          }
         }
       },
     }

@@ -6,6 +6,8 @@ import { readFrontmatter } from './frontmatter.ts'
 import { readModeFile } from './mode-file.ts'
 import { loadScript, scriptExtensions, type LoadedScript } from './scripts.ts'
 
+const modeKey = 'modes.mode'
+
 export type Loaded = {
   readonly definitions: Definitions
   readonly scripts: readonly LoadedScript[]
@@ -103,10 +105,11 @@ async function loadAll(folders: ReturnType<typeof foldersOf>, version: number): 
     const found = new Map<string, string>()
     for (const path of paths) {
       const data = attempt(path, () => readFrontmatter(readFileSync(path, 'utf8')).data)
-      const mode = data?.['mode']
+      const metadata = data?.['metadata']
+      const mode = typeof metadata === 'object' && metadata !== null ? (metadata as Record<string, unknown>)[modeKey] : undefined
       if (mode === undefined) continue
       if (typeof mode !== 'string' || !modes.has(mode)) {
-        problems.push({ source: path, message: `mode: ${String(mode)} names no mode file. Use one of ${ordered.map(({ name }) => name).join(', ') || 'the modes you define'}.` })
+        problems.push({ source: path, message: `metadata ${modeKey}: ${String(mode)} names no mode file. Use one of ${ordered.map(({ name }) => name).join(', ') || 'the modes you define'}.` })
         continue
       }
       const name = typeof data?.['name'] === 'string' ? data['name'] : nameOf(path)

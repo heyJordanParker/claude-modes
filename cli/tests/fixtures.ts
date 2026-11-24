@@ -17,8 +17,7 @@ export const proposeMode = `---
 order: 1
 description: plan before you build
 deny:
-  - write: "**"
-    except: ["docs/plans/**"]
+  - write: ["**", "!docs/plans/**"]
     reason: Propose mode writes plans only.
   - command: git commit
 ---

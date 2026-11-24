@@ -11,7 +11,7 @@ test('a mode file holds its gates, how it ends, and its rules', () => {
     order: 1,
     description: 'plan before you build',
     rules: 'You are proposing. You change no file and make no commit.',
-    deny: [{ write: '**', except: ['docs/plans/**'], reason: 'Propose mode writes plans only.' }, { command: 'git commit' }],
+    deny: [{ write: ['**', '!docs/plans/**'], reason: 'Propose mode writes plans only.' }, { command: 'git commit' }],
     ask: [],
     after: [],
     source: '/m/propose.md',
@@ -22,7 +22,8 @@ test('a mode file holds its gates, how it ends, and its rules', () => {
 test('a mode file with a rule that names two targets is refused with the fix', () => {
   expect(() => readModeFile('/m/bad.md', '---\ndeny:\n  - write: "**"\n    read: "**"\n---\n')).toThrow('deny[0] names read and write. Name exactly one of command, read, write, fetch, subagent, tool.')
   expect(() => readModeFile('/m/bad.md', '---\ngates: []\n---\n')).toThrow('"gates" is not a mode key.')
-  expect(() => readModeFile('/m/bad.md', '---\ndeny:\n  - subagent: "*"\n    except: explorer\n---\n')).toThrow('except works on read, write, and fetch.')
+  expect(() => readModeFile('/m/bad.md', '---\ndeny:\n  - write: "**"\n    except: docs/**\n---\n')).toThrow('deny[0] has "except". A rule holds one target, and may add reason.')
+  expect(() => readModeFile('/m/bad.md', '---\ndeny:\n  - write: "!docs/**"\n---\n')).toThrow('deny[0].write only leaves calls out. Add a pattern without "!" for them to leave out of, such as ["**", "!docs/**"].')
 })
 
 test('the catalog orders the modes, and a project mode replaces a personal one of the same name', async () => {
@@ -40,20 +41,21 @@ test('the catalog orders the modes, and a project mode replaces a personal one o
   expect(definitions.problems).toEqual([])
 })
 
-test('Agents and Skills enter modes through their frontmatter, and an unknown mode is a problem', async () => {
+test('Agents and Skills enter modes through their metadata, and an unknown mode is a problem', async () => {
   const home = temporaryFolder()
   writeFiles(home, {
     'cmods/modes/propose.md': proposeMode,
-    'agents/planner.md': '---\nname: planner\nmode: propose\n---\nPlan.\n',
-    'skills/plan/SKILL.md': '---\nname: plan\nmode: propose\n---\nPlan.\n',
-    'skills/ship/SKILL.md': '---\nmode: shipping\n---\nShip.\n',
+    'agents/planner.md': '---\nname: planner\nmetadata:\n  modes.mode: propose\n---\nPlan.\n',
+    'skills/plan/SKILL.md': '---\nname: plan\nmetadata:\n  modes.mode: propose\n---\nPlan.\n',
+    'skills/ship/SKILL.md': '---\nmetadata:\n  modes.mode: shipping\n---\nShip.\n',
+    'skills/old/SKILL.md': '---\nmode: propose\n---\nA top-level mode key is not Modes metadata.\n',
   })
 
   const loaded = await createCatalog(home).load(temporaryFolder())
 
   expect([...loaded.agentModes]).toEqual([['planner', 'propose']])
   expect([...loaded.skillModes]).toEqual([['plan', 'propose']])
-  expect(loaded.definitions.problems).toEqual([{ source: join(home, 'skills/ship/SKILL.md'), message: 'mode: shipping names no mode file. Use one of propose.' }])
+  expect(loaded.definitions.problems).toEqual([{ source: join(home, 'skills/ship/SKILL.md'), message: 'metadata modes.mode: shipping names no mode file. Use one of propose.' }])
 })
 
 test('a hook script loads with the SDK, and its folder gets editor types', async () => {

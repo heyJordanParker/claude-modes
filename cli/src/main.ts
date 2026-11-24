@@ -2,7 +2,6 @@
 import { parseArgs } from 'node:util'
 import packageJson from '../package.json' with { type: 'json' }
 import { check, copy, current, exportSession, exportTranscript, importTranscript, sessions, setMode, show, type Output } from './commands.ts'
-import { bindModeKey, unbindModeKey } from './keybindings.ts'
 import { configHome, databaseOf, storeRoot } from './paths.ts'
 import { serve } from './serve.ts'
 import { openStore } from './store/store.ts'
@@ -20,8 +19,6 @@ Usage:
   claude-modes export <session>                 Print a session as JSON
   claude-modes export <session> --as claude     Write the session back as a Claude Code transcript, to resume it here
   claude-modes check [<project>]                Load the modes and hook scripts, and list each problem
-  claude-modes bind                             Make shift+tab run /mode, in ~/.claude/keybindings.json
-  claude-modes unbind                           Give shift+tab back to Claude Code
   claude-modes serve                           Run the store for one Claude Code session (the Modes mod starts it)
 
 The store lives in $CLAUDE_MODES_HOME, by default ~/.local/share/cmod/data/modes.`
@@ -76,10 +73,6 @@ async function run(name: string, args: readonly string[]): Promise<Output> {
       return check(configHome(), args[0] ?? process.cwd())
     case 'watch':
       return watch(store)
-    case 'bind':
-      return bindModeKey(configHome())
-    case 'unbind':
-      return unbindModeKey(configHome())
     default:
       return { text: `"${name}" is not a command.\n\n${usage}`, code: 2 }
   }

@@ -1,7 +1,7 @@
 {
   "name": "modes",
   "displayName": "Modes",
-  "version": "0.1.0",
+  "version": "1.0.0",
   "description": "Define your own modes and hooks for Claude Code in Markdown and TypeScript files, switch modes with one key, and browse every session's history by task.",
   "author": {
     "name": "Jordan Parker"
@@ -11,6 +11,14 @@
   "supportUrl": "https://github.com/heyJordanParker/claude-modes/issues",
   "license": "MIT",
   "keywords": ["modes", "hooks", "permissions", "history", "cmod"],
-  "dependencies": ["cmod"],
-  "types": "./types/index.d.ts"
+  "dependencies": [{ "name": "cmod", "version": ">=8.0.0" }],
+  "types": "./types/index.d.ts",
+  "userConfig": {
+    "defaultMode": {
+      "type": "string",
+      "title": "Starting mode",
+      "description": "The mode a new session starts in. Leave it empty to start in the first mode.",
+      "default": ""
+    }
+  }
 }
