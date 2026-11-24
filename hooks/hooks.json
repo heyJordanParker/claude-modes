@@ -1,0 +1,6 @@
+{
+  "description": "Modes hooks module",
+  "modules": [
+    "./register.js"
+  ]
+}
