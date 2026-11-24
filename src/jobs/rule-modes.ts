@@ -25,12 +25,12 @@ export function ruleModes(): Job<void, ModesState> {
         ),
       )
     }
-    const logFailure = (error: unknown) => mod.log(`Modes could not hear rulebook's checks: ${messageOf(error)}`, { level: 'error' })
-    void (async () => {
-      const [watch] = await providers('cmod/Providers')
-      watch?.onChange({ interface: 'rulebook/Rules' }, () => listen().catch(logFailure))
-      await listen()
-    })().catch(logFailure)
+    const logFailure = (step: string) => (error: unknown) => mod.log(`Modes could not ${step}: ${messageOf(error)}`, { level: 'error' })
+    const listFailure = logFailure("list rulebook's providers")
+    void listen().catch(listFailure)
+    void providers('cmod/Providers')
+      .then(([watch]) => watch?.onChange({ interface: 'rulebook/Rules' }, () => listen().catch(listFailure)))
+      .catch(logFailure('hear when rulebook starts or stops'))
     announce('the mode of each rulebook rule')
   }
 }

@@ -279,7 +279,7 @@ function readHotkeys(hotkeys) {
     throw new Error(`package.json "cmod.hotkeys" is not a map of hotkeys to their title and optional default combo. ${fix}`);
   return { hotkeys: checkHotkeys('package.json "cmod"', hotkeys) };
 }
-var coreVersion = "8.7.1";
+var coreVersion = "8.8.2";
 var oldestCmodVersion = "8.0.0";
 function hotkeyCommand(mod, hotkey) {
   return `${mod}--${hotkey}`;
@@ -9303,11 +9303,10 @@ ${value}`;
   };
 }
 function addKeptCurrent(job, name, textFor, log) {
-  const { claude, router } = engineOf(job.mod);
+  const { router } = engineOf(job.mod);
   let given;
   let hasStarted = false;
-  let isQueued = false;
-  let updates = Promise.resolve();
+  let isChanged = false;
   const starting = router.add("classic.SessionStart", (e, next) => {
     hasStarted = e.source === "resume" || e.source === "compact";
     if (!hasStarted)
@@ -9324,30 +9323,27 @@ function addKeptCurrent(job, name, textFor, log) {
     given = await textFor();
     return given === undefined ? below : { ...below, blocks: [...below.blocks, { name, text: given }] };
   });
-  const update = async () => {
-    isQueued = false;
-    if (!hasStarted)
-      return;
+  const handedOver = async (below) => {
+    if (!hasStarted || !isChanged)
+      return below;
+    isChanged = false;
     const value = await textFor();
     if (value === undefined || value === given)
-      return;
+      return below;
     given = value;
-    await claude.session.append({ message: { type: "user", content: [{ type: "text", text: modNote(job.mod.name, `# ${name}
-${value}`) }] } }).then((added) => {
-      if (added.deny !== undefined)
-        log(`Claude Code refused the new text: ${added.deny}`);
-    });
+    const fields = below ?? {};
+    return { ...fields, additionalContext: [...fields["additionalContext"] ?? [], modNote(job.mod.name, `# ${name}
+${value}`)] };
   };
-  const following = onStateChange(job.mod.state, () => {
-    if (isQueued)
-      return;
-    isQueued = true;
-    updates = updates.then(update).catch((error) => log(messageOf(error)));
-  });
+  const prompted = router.add("classic.UserPromptSubmit", async (e, next) => handedOver(await next(e)));
+  const batched = router.add("classic.PostToolBatch", async (e, next) => e.agent_id === undefined ? handedOver(await next(e)) : next(e));
+  const following = onStateChange(job.mod.state, () => void (isChanged = true));
   return {
     remove() {
       starting.remove();
       adding.remove();
+      prompted.remove();
+      batched.remove();
       following.remove();
     }
   };
@@ -9520,7 +9516,7 @@ function defineMod(definition) {
     checkSteps(definition.name, definition.installer);
   return definition;
 }
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/answers.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/answers.ts
 function answersOf(effects) {
   const texts = (keys, separator) => {
     const found = effects.flatMap((effect) => Object.entries(effect).flatMap(([key, text]) => keys.includes(key) ? [String(text)] : []));
@@ -9764,7 +9760,7 @@ function addressOf(line) {
   return;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/connection.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/connection.ts
 function connect(mod, defaultMode) {
   const token = crypto.randomUUID();
   const store = mod.use(program({ command: ["claude-modes", "serve"], environment: { CLAUDE_MODES_TOKEN: token } }));
@@ -9806,7 +9802,7 @@ function connect(mod, defaultMode) {
   return connection;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/jobs/mode-commands.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/jobs/mode-commands.ts
 var ownCommands = new Set(["mode", "modes"]);
 function nextMode(definitions, current) {
   const names = definitions?.modes.map(({ name }) => name) ?? [];
@@ -9848,7 +9844,7 @@ function modeCommands(connection) {
   };
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/jobs/mode-gates.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/jobs/mode-gates.ts
 var targetKeys2 = ["command", "read", "write", "fetch", "subagent", "tool"];
 function modeNameOf(state, agentId) {
   const { modes } = state.memory;
@@ -9911,7 +9907,7 @@ function listOf(patterns) {
   return typeof patterns === "string" ? [patterns] : patterns;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/jobs/rule-modes.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/jobs/rule-modes.ts
 function offRules(state, check) {
   const mode = modeNameOf(state, check.task);
   const off = check.rules.filter(({ metadata }) => typeof metadata["mode"] === "string" && metadata["mode"] !== mode).map(({ id }) => [id, "off"]);
@@ -9929,24 +9925,22 @@ function ruleModes() {
         return rules === undefined ? undefined : { rules };
       }, { timeoutMs: 1000 }));
     };
-    const logFailure = (error) => mod.log(`Modes could not hear rulebook's checks: ${messageOf(error)}`, { level: "error" });
-    (async () => {
-      const [watch] = await providers("cmod/Providers");
-      watch?.onChange({ interface: "rulebook/Rules" }, () => listen().catch(logFailure));
-      await listen();
-    })().catch(logFailure);
+    const logFailure = (step) => (error) => mod.log(`Modes could not ${step}: ${messageOf(error)}`, { level: "error" });
+    const listFailure = logFailure("list rulebook's providers");
+    listen().catch(listFailure);
+    providers("cmod/Providers").then(([watch]) => watch?.onChange({ interface: "rulebook/Rules" }, () => listen().catch(listFailure))).catch(logFailure("hear when rulebook starts or stops"));
     announce("the mode of each rulebook rule");
   };
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/protocol.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/protocol.ts
 function rulesOf(mode) {
   return [`Mode: ${mode.name}${mode.description === "" ? "" : ` (${mode.description})`}`, mode.rules].filter((part) => part !== "").join(`
 
 `);
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/state.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/state.ts
 var initialState = {
   memory: {
     modes: { main: undefined, agents: {} },
@@ -9959,7 +9953,7 @@ var initialState = {
   }
 };
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/components/settings-tab.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/components/settings-tab.tsx
 function SettingsTab({ mod, enter, defaultMode }) {
   const { definitions, modes, failure } = mod.state.memory;
   if (definitions === null)
@@ -10023,7 +10017,9 @@ function ModeLine({ mode, isCurrent, enter }) {
     variant: isCurrent ? "primary" : "secondary",
     label: mode.name,
     onPress: () => enter(mode.name)
-  }), /* @__PURE__ */ h(Text, {
+  }, /* @__PURE__ */ h(Text, {
+    ...mode.color === undefined ? {} : { color: mode.color }
+  }, mode.name)), /* @__PURE__ */ h(Text, {
     dimColor: true,
     wrap: "truncate-end"
   }, mode.description)), facts.map((fact) => /* @__PURE__ */ h(Text, {
@@ -10031,7 +10027,7 @@ function ModeLine({ mode, isCurrent, enter }) {
   }, `    ${fact}`)));
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/views/modes.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/views/modes.tsx
 function modesView(enter, defaultMode) {
   return {
     id: "modes",
@@ -10058,7 +10054,7 @@ function shownTab(mod) {
   return mod.state.memory.modeTab === null ? "settings" : mod.state.session.tab;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/widgets/mode.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/widgets/mode.tsx
 function modeWidget(cycle) {
   return {
     id: "mode",
@@ -10066,17 +10062,22 @@ function modeWidget(cycle) {
     areas: [BelowPrompt, AbovePrompt],
     render: (mod) => {
       const { main } = mod.state.memory.modes;
-      return main === undefined ? undefined : /* @__PURE__ */ h(Button, {
+      if (main === undefined)
+        return;
+      const color = modeOf(mod.state, undefined)?.color;
+      return /* @__PURE__ */ h(Button, {
         key: "mode",
         plain: true,
         label: `mode: ${main}`,
         onPress: cycle
-      });
+      }, "mode: ", /* @__PURE__ */ h(Text, {
+        ...color === undefined ? {} : { color }
+      }, main));
     }
   };
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/mod.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/mod.tsx
 var causeText = (cause) => cause.kind === "start" || cause.kind === "turn-end" ? cause.kind : `${cause.kind} ${cause.name}`;
 var commandsOf = (name, input) => name === "Bash" && typeof input["command"] === "string" ? parseShell(input["command"]).commands.map(({ argv }) => argv) : [];
 function filesOf(name, input, cwd) {
@@ -10255,7 +10256,7 @@ var modes = defineMod({
   }
 });
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/hooks/register.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/hooks/register.ts
 function register(addHook, options) {
   registerMod(addHook, modes, options);
   registerPermissionCheck(addHook);

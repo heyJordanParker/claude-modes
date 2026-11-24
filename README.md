@@ -84,6 +84,7 @@ Commit the work, then stop.
 | --- | --- |
 | `order` | The mode's place in the cycle. Lower comes first. |
 | `description` | One line, shown in the Modes view and in `/<mode>`'s help. |
+| `color` | The color of the mode's name in the Mode widget and the Modes view: `red`, `blue`, `green`, `yellow`, `purple`, `orange`, `pink`, or `cyan`, as an Agent's color. |
 | `deny` | Calls the mode refuses. Each rule names one target, and may add a `reason`. |
 | `ask` | Calls Claude Code asks you about first. Same rules as `deny`. |
 | `lasts: turn` | The mode ends when the turn ends, and the session returns to the mode before it. |

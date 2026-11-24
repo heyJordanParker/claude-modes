@@ -10,8 +10,8 @@
       "description": "Define your own modes and hooks for Claude Code in Markdown and TypeScript files, switch modes with one key, and browse every session's history by task.",
       "source": {
         "source": "archive",
-        "url": "https://github.com/heyJordanParker/claude-modes/releases/download/v1.0.0/modes-1.0.0.zip",
-        "sha256": "9d4604ef2b67d6cde4907b0828d4429abc0e132fe08332d45de5e0e5f17920b1"
+        "url": "https://github.com/heyJordanParker/claude-modes/releases/download/v1.1.0/modes-1.1.0.zip",
+        "sha256": "1312cd8174a3c7b55877e7881d89ccb2a1b97eb513f0088799968fa379ec1b6e"
       }
     },
     {

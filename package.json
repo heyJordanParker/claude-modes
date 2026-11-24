@@ -23,7 +23,7 @@
     "check": "cmod check"
   },
   "dependencies": {
-    "@cmodjs/core": "^8.7.1",
+    "@cmodjs/core": "^8.8.2",
     "yaml": "2"
   }
 }
