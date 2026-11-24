@@ -279,7 +279,7 @@ function readHotkeys(hotkeys) {
     throw new Error(`package.json "cmod.hotkeys" is not a map of hotkeys to their title and optional default combo. ${fix}`);
   return { hotkeys: checkHotkeys('package.json "cmod"', hotkeys) };
 }
-var coreVersion = "8.3.2";
+var coreVersion = "8.7.1";
 var oldestCmodVersion = "8.0.0";
 function hotkeyCommand(mod, hotkey) {
   return `${mod}--${hotkey}`;
@@ -1794,7 +1794,95 @@ var Pt = me(function(ts, Lt) {
     }, []);
   };
 });
+function _e(e, r) {
+  let t = typeof e;
+  if (t !== typeof r)
+    return false;
+  if (Array.isArray(e)) {
+    if (!Array.isArray(r))
+      return false;
+    let n = e.length;
+    if (n !== r.length)
+      return false;
+    for (let o = 0;o < n; o++)
+      if (!_e(e[o], r[o]))
+        return false;
+    return true;
+  }
+  if (t === "object") {
+    if (!e || !r)
+      return e === r;
+    let n = Object.keys(e), o = Object.keys(r);
+    if (n.length !== o.length)
+      return false;
+    for (let s of n)
+      if (!_e(e[s], r[s]))
+        return false;
+    return true;
+  }
+  return e === r;
+}
+function oe(e) {
+  return encodeURI(Wt(e));
+}
+function Wt(e) {
+  return e.replace(/~/g, "~0").replace(/\//g, "~1");
+}
+var Xt = { prefixItems: true, items: true, allOf: true, anyOf: true, oneOf: true };
+var Qt = { $defs: true, definitions: true, properties: true, patternProperties: true, dependentSchemas: true };
+var Zt = { id: true, $id: true, $ref: true, $schema: true, $anchor: true, $vocabulary: true, $comment: true, default: true, enum: true, const: true, required: true, type: true, maximum: true, minimum: true, exclusiveMaximum: true, exclusiveMinimum: true, multipleOf: true, maxLength: true, minLength: true, pattern: true, format: true, maxItems: true, minItems: true, uniqueItems: true, maxProperties: true, minProperties: true };
 var Vt = typeof self < "u" && self.location && self.location.origin !== "null" ? new URL(self.location.origin + self.location.pathname + location.search) : new URL("https://github.com/cfworker");
+function ce(e, r = Object.create(null), t = Vt, n = "") {
+  if (e && typeof e === "object" && !Array.isArray(e)) {
+    let u = e.$id || e.id;
+    if (u) {
+      let s = new URL(u, t.href);
+      if (s.hash.length > 1)
+        r[s.href] = e;
+      else if (s.hash = "", n === "")
+        t = s;
+      else
+        ce(e, r, t);
+    }
+  } else if (e !== true && e !== false)
+    return r;
+  let o = t.href + (n ? "#" + n : "");
+  if (r[o] !== undefined)
+    throw Error(`Duplicate schema URI "${o}".`);
+  if (r[o] = e, e === true || e === false)
+    return r;
+  if (e.__absolute_uri__ === undefined)
+    Object.defineProperty(e, "__absolute_uri__", { enumerable: false, value: o });
+  if (e.$ref && e.__absolute_ref__ === undefined) {
+    let u = new URL(e.$ref, t.href);
+    u.hash = u.hash, Object.defineProperty(e, "__absolute_ref__", { enumerable: false, value: u.href });
+  }
+  if (e.$recursiveRef && e.__absolute_recursive_ref__ === undefined) {
+    let u = new URL(e.$recursiveRef, t.href);
+    u.hash = u.hash, Object.defineProperty(e, "__absolute_recursive_ref__", { enumerable: false, value: u.href });
+  }
+  if (e.$anchor) {
+    let u = new URL("#" + e.$anchor, t.href);
+    r[u.href] = e;
+  }
+  for (let u in e) {
+    if (Zt[u])
+      continue;
+    let s = `${n}/${oe(u)}`, i = e[u];
+    if (Array.isArray(i)) {
+      if (Xt[u]) {
+        let h2 = i.length;
+        for (let N = 0;N < h2; N++)
+          ce(i[N], r, t, `${s}/${N}`);
+      }
+    } else if (Qt[u])
+      for (let h2 in i)
+        ce(i[h2], r, t, `${s}/${oe(h2)}`);
+    else
+      ce(i, r, t, s);
+  }
+  return r;
+}
 var Yt = /^(\d\d\d\d)-(\d\d)-(\d\d)$/;
 var Jt = [0, 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31];
 var er = /^(\d\d):(\d\d):(\d\d)(\.\d+)?(z|[+-]\d\d(?::?\d\d)?)?$/i;
@@ -1860,6 +1948,393 @@ function xr(e) {
     return new RegExp(e, "u"), true;
   } catch (r) {
     return false;
+  }
+}
+function tt(e) {
+  let r = 0, t = e.length, n = 0, o;
+  while (n < t)
+    if (r++, o = e.charCodeAt(n++), o >= 55296 && o <= 56319 && n < t) {
+      if (o = e.charCodeAt(n), (o & 64512) == 56320)
+        n++;
+    }
+  return r;
+}
+function F(e, r, t = "2019-09", n = ce(r), o = true, u = null, s = "#", i = "#", h2 = Object.create(null)) {
+  if (r === true)
+    return { valid: true, errors: [] };
+  if (r === false)
+    return { valid: false, errors: [{ instanceLocation: s, keyword: "false", keywordLocation: s, error: "False boolean schema." }] };
+  let N = typeof e, _;
+  switch (N) {
+    case "boolean":
+    case "number":
+    case "string":
+      _ = N;
+      break;
+    case "object":
+      if (e === null)
+        _ = "null";
+      else if (Array.isArray(e))
+        _ = "array";
+      else
+        _ = "object";
+      break;
+    default:
+      throw Error(`Instances of "${N}" type are not supported.`);
+  }
+  let { $ref: w, $recursiveRef: M, $recursiveAnchor: K, type: g, const: k, enum: ee, required: q, not: L, anyOf: H, allOf: ne, oneOf: X, if: T, then: V, else: A, format: I, properties: a, patternProperties: Q, additionalProperties: C, unevaluatedProperties: B, minProperties: l, maxProperties: f, propertyNames: Y, dependentRequired: P, dependentSchemas: J, dependencies: te, prefixItems: W, items: ue, additionalItems: $e, unevaluatedItems: fe, contains: ae, minContains: R, maxContains: de, minItems: Re, maxItems: p, uniqueItems: j, minimum: d, maximum: O, exclusiveMinimum: D, exclusiveMaximum: U, multipleOf: z, minLength: re, maxLength: ie, pattern: pe, __absolute_ref__: we, __absolute_recursive_ref__: zt } = r, m = [];
+  if (K === true && u === null)
+    u = r;
+  if (M === "#") {
+    let E = u === null ? n[zt] : u, x = `${i}/$recursiveRef`, v = F(e, u === null ? r : u, t, n, o, E, s, x, h2);
+    if (!v.valid)
+      m.push({ instanceLocation: s, keyword: "$recursiveRef", keywordLocation: x, error: "A subschema had errors." }, ...v.errors);
+  }
+  if (w !== undefined) {
+    let x = n[we || w];
+    if (x === undefined) {
+      let c = `Unresolved $ref "${w}".`;
+      if (we && we !== w)
+        c += `  Absolute URI "${we}".`;
+      throw c += `
+Known schemas:
+- ${Object.keys(n).join(`
+- `)}`, Error(c);
+    }
+    let v = `${i}/$ref`, y = F(e, x, t, n, o, u, s, v, h2);
+    if (!y.valid)
+      m.push({ instanceLocation: s, keyword: "$ref", keywordLocation: v, error: "A subschema had errors." }, ...y.errors);
+    if (t === "4" || t === "7")
+      return { valid: m.length === 0, errors: m };
+  }
+  if (Array.isArray(g)) {
+    let E = g.length, x = false;
+    for (let v = 0;v < E; v++)
+      if (_ === g[v] || g[v] === "integer" && _ === "number" && e % 1 === 0 && e === e) {
+        x = true;
+        break;
+      }
+    if (!x)
+      m.push({ instanceLocation: s, keyword: "type", keywordLocation: `${i}/type`, error: `Instance type "${_}" is invalid. Expected "${g.join('", "')}".` });
+  } else if (g === "integer") {
+    if (_ !== "number" || e % 1 || e !== e)
+      m.push({ instanceLocation: s, keyword: "type", keywordLocation: `${i}/type`, error: `Instance type "${_}" is invalid. Expected "${g}".` });
+  } else if (g !== undefined && _ !== g)
+    m.push({ instanceLocation: s, keyword: "type", keywordLocation: `${i}/type`, error: `Instance type "${_}" is invalid. Expected "${g}".` });
+  if (k !== undefined) {
+    if (_ === "object" || _ === "array") {
+      if (!_e(e, k))
+        m.push({ instanceLocation: s, keyword: "const", keywordLocation: `${i}/const`, error: `Instance does not match ${JSON.stringify(k)}.` });
+    } else if (e !== k)
+      m.push({ instanceLocation: s, keyword: "const", keywordLocation: `${i}/const`, error: `Instance does not match ${JSON.stringify(k)}.` });
+  }
+  if (ee !== undefined) {
+    if (_ === "object" || _ === "array") {
+      if (!ee.some((E) => _e(e, E)))
+        m.push({ instanceLocation: s, keyword: "enum", keywordLocation: `${i}/enum`, error: `Instance does not match any of ${JSON.stringify(ee)}.` });
+    } else if (!ee.some((E) => e === E))
+      m.push({ instanceLocation: s, keyword: "enum", keywordLocation: `${i}/enum`, error: `Instance does not match any of ${JSON.stringify(ee)}.` });
+  }
+  if (L !== undefined) {
+    let E = `${i}/not`;
+    if (F(e, L, t, n, o, u, s, E).valid)
+      m.push({ instanceLocation: s, keyword: "not", keywordLocation: E, error: 'Instance matched "not" schema.' });
+  }
+  let Oe = [];
+  if (H !== undefined) {
+    let E = `${i}/anyOf`, x = m.length, v = false;
+    for (let y = 0;y < H.length; y++) {
+      let c = H[y], b = Object.create(h2), S = F(e, c, t, n, o, K === true ? u : null, s, `${E}/${y}`, b);
+      if (m.push(...S.errors), v = v || S.valid, S.valid)
+        Oe.push(b);
+    }
+    if (v)
+      m.length = x;
+    else
+      m.splice(x, 0, { instanceLocation: s, keyword: "anyOf", keywordLocation: E, error: "Instance does not match any subschemas." });
+  }
+  if (ne !== undefined) {
+    let E = `${i}/allOf`, x = m.length, v = true;
+    for (let y = 0;y < ne.length; y++) {
+      let c = ne[y], b = Object.create(h2), S = F(e, c, t, n, o, K === true ? u : null, s, `${E}/${y}`, b);
+      if (m.push(...S.errors), v = v && S.valid, S.valid)
+        Oe.push(b);
+    }
+    if (v)
+      m.length = x;
+    else
+      m.splice(x, 0, { instanceLocation: s, keyword: "allOf", keywordLocation: E, error: "Instance does not match every subschema." });
+  }
+  if (X !== undefined) {
+    let E = `${i}/oneOf`, x = m.length, v = X.filter((y, c) => {
+      let b = Object.create(h2), S = F(e, y, t, n, o, K === true ? u : null, s, `${E}/${c}`, b);
+      if (m.push(...S.errors), S.valid)
+        Oe.push(b);
+      return S.valid;
+    }).length;
+    if (v === 1)
+      m.length = x;
+    else
+      m.splice(x, 0, { instanceLocation: s, keyword: "oneOf", keywordLocation: E, error: `Instance does not match exactly one subschema (${v} matches).` });
+  }
+  if (_ === "object" || _ === "array")
+    Object.assign(h2, ...Oe);
+  if (T !== undefined) {
+    let E = `${i}/if`;
+    if (F(e, T, t, n, o, u, s, E, h2).valid) {
+      if (V !== undefined) {
+        let v = F(e, V, t, n, o, u, s, `${i}/then`, h2);
+        if (!v.valid)
+          m.push({ instanceLocation: s, keyword: "if", keywordLocation: E, error: 'Instance does not match "then" schema.' }, ...v.errors);
+      }
+    } else if (A !== undefined) {
+      let v = F(e, A, t, n, o, u, s, `${i}/else`, h2);
+      if (!v.valid)
+        m.push({ instanceLocation: s, keyword: "if", keywordLocation: E, error: 'Instance does not match "else" schema.' }, ...v.errors);
+    }
+  }
+  if (_ === "object") {
+    if (q !== undefined) {
+      for (let y of q)
+        if (!(y in e))
+          m.push({ instanceLocation: s, keyword: "required", keywordLocation: `${i}/required`, error: `Instance does not have required property "${y}".` });
+    }
+    let E = Object.keys(e);
+    if (l !== undefined && E.length < l)
+      m.push({ instanceLocation: s, keyword: "minProperties", keywordLocation: `${i}/minProperties`, error: `Instance does not have at least ${l} properties.` });
+    if (f !== undefined && E.length > f)
+      m.push({ instanceLocation: s, keyword: "maxProperties", keywordLocation: `${i}/maxProperties`, error: `Instance does not have at least ${f} properties.` });
+    if (Y !== undefined) {
+      let y = `${i}/propertyNames`;
+      for (let c in e) {
+        let b = `${s}/${oe(c)}`, S = F(c, Y, t, n, o, u, b, y);
+        if (!S.valid)
+          m.push({ instanceLocation: s, keyword: "propertyNames", keywordLocation: y, error: `Property name "${c}" does not match schema.` }, ...S.errors);
+      }
+    }
+    if (P !== undefined) {
+      let y = `${i}/dependantRequired`;
+      for (let c in P)
+        if (c in e) {
+          let b = P[c];
+          for (let S of b)
+            if (!(S in e))
+              m.push({ instanceLocation: s, keyword: "dependentRequired", keywordLocation: y, error: `Instance has "${c}" but does not have "${S}".` });
+        }
+    }
+    if (J !== undefined)
+      for (let y in J) {
+        let c = `${i}/dependentSchemas`;
+        if (y in e) {
+          let b = F(e, J[y], t, n, o, u, s, `${c}/${oe(y)}`, h2);
+          if (!b.valid)
+            m.push({ instanceLocation: s, keyword: "dependentSchemas", keywordLocation: c, error: `Instance has "${y}" but does not match dependant schema.` }, ...b.errors);
+        }
+      }
+    if (te !== undefined) {
+      let y = `${i}/dependencies`;
+      for (let c in te)
+        if (c in e) {
+          let b = te[c];
+          if (Array.isArray(b)) {
+            for (let S of b)
+              if (!(S in e))
+                m.push({ instanceLocation: s, keyword: "dependencies", keywordLocation: y, error: `Instance has "${c}" but does not have "${S}".` });
+          } else {
+            let S = F(e, b, t, n, o, u, s, `${y}/${oe(c)}`);
+            if (!S.valid)
+              m.push({ instanceLocation: s, keyword: "dependencies", keywordLocation: y, error: `Instance has "${c}" but does not match dependant schema.` }, ...S.errors);
+          }
+        }
+    }
+    let x = Object.create(null), v = false;
+    if (a !== undefined) {
+      let y = `${i}/properties`;
+      for (let c in a) {
+        if (!(c in e))
+          continue;
+        let b = `${s}/${oe(c)}`, S = F(e[c], a[c], t, n, o, u, b, `${y}/${oe(c)}`);
+        if (S.valid)
+          h2[c] = x[c] = true;
+        else if (v = o, m.push({ instanceLocation: s, keyword: "properties", keywordLocation: y, error: `Property "${c}" does not match schema.` }, ...S.errors), v)
+          break;
+      }
+    }
+    if (!v && Q !== undefined) {
+      let y = `${i}/patternProperties`;
+      for (let c in Q) {
+        let b = new RegExp(c, "u"), S = Q[c];
+        for (let se in e) {
+          if (!b.test(se))
+            continue;
+          let Qe = `${s}/${oe(se)}`, Ze = F(e[se], S, t, n, o, u, Qe, `${y}/${oe(c)}`);
+          if (Ze.valid)
+            h2[se] = x[se] = true;
+          else
+            v = o, m.push({ instanceLocation: s, keyword: "patternProperties", keywordLocation: y, error: `Property "${se}" matches pattern "${c}" but does not match associated schema.` }, ...Ze.errors);
+        }
+      }
+    }
+    if (!v && C !== undefined) {
+      let y = `${i}/additionalProperties`;
+      for (let c in e) {
+        if (x[c])
+          continue;
+        let b = `${s}/${oe(c)}`, S = F(e[c], C, t, n, o, u, b, y);
+        if (S.valid)
+          h2[c] = true;
+        else
+          v = o, m.push({ instanceLocation: s, keyword: "additionalProperties", keywordLocation: y, error: `Property "${c}" does not match additional properties schema.` }, ...S.errors);
+      }
+    } else if (!v && B !== undefined) {
+      let y = `${i}/unevaluatedProperties`;
+      for (let c in e)
+        if (!h2[c]) {
+          let b = `${s}/${oe(c)}`, S = F(e[c], B, t, n, o, u, b, y);
+          if (S.valid)
+            h2[c] = true;
+          else
+            m.push({ instanceLocation: s, keyword: "unevaluatedProperties", keywordLocation: y, error: `Property "${c}" does not match unevaluated properties schema.` }, ...S.errors);
+        }
+    }
+  } else if (_ === "array") {
+    if (p !== undefined && e.length > p)
+      m.push({ instanceLocation: s, keyword: "maxItems", keywordLocation: `${i}/maxItems`, error: `Array has too many items (${e.length} > ${p}).` });
+    if (Re !== undefined && e.length < Re)
+      m.push({ instanceLocation: s, keyword: "minItems", keywordLocation: `${i}/minItems`, error: `Array has too few items (${e.length} < ${Re}).` });
+    let E = e.length, x = 0, v = false;
+    if (W !== undefined) {
+      let y = `${i}/prefixItems`, c = Math.min(W.length, E);
+      for (;x < c; x++) {
+        let b = F(e[x], W[x], t, n, o, u, `${s}/${x}`, `${y}/${x}`);
+        if (h2[x] = true, !b.valid) {
+          if (v = o, m.push({ instanceLocation: s, keyword: "prefixItems", keywordLocation: y, error: "Items did not match schema." }, ...b.errors), v)
+            break;
+        }
+      }
+    }
+    if (ue !== undefined) {
+      let y = `${i}/items`;
+      if (Array.isArray(ue)) {
+        let c = Math.min(ue.length, E);
+        for (;x < c; x++) {
+          let b = F(e[x], ue[x], t, n, o, u, `${s}/${x}`, `${y}/${x}`);
+          if (h2[x] = true, !b.valid) {
+            if (v = o, m.push({ instanceLocation: s, keyword: "items", keywordLocation: y, error: "Items did not match schema." }, ...b.errors), v)
+              break;
+          }
+        }
+      } else
+        for (;x < E; x++) {
+          let c = F(e[x], ue, t, n, o, u, `${s}/${x}`, y);
+          if (h2[x] = true, !c.valid) {
+            if (v = o, m.push({ instanceLocation: s, keyword: "items", keywordLocation: y, error: "Items did not match schema." }, ...c.errors), v)
+              break;
+          }
+        }
+      if (!v && $e !== undefined) {
+        let c = `${i}/additionalItems`;
+        for (;x < E; x++) {
+          let b = F(e[x], $e, t, n, o, u, `${s}/${x}`, c);
+          if (h2[x] = true, !b.valid)
+            v = o, m.push({ instanceLocation: s, keyword: "additionalItems", keywordLocation: c, error: "Items did not match additional items schema." }, ...b.errors);
+        }
+      }
+    }
+    if (ae !== undefined)
+      if (E === 0 && R === undefined)
+        m.push({ instanceLocation: s, keyword: "contains", keywordLocation: `${i}/contains`, error: "Array is empty. It must contain at least one item matching the schema." });
+      else if (R !== undefined && E < R)
+        m.push({ instanceLocation: s, keyword: "minContains", keywordLocation: `${i}/minContains`, error: `Array has less items (${E}) than minContains (${R}).` });
+      else {
+        let y = `${i}/contains`, c = m.length, b = 0;
+        for (let S = 0;S < E; S++) {
+          let se = F(e[S], ae, t, n, o, u, `${s}/${S}`, y);
+          if (se.valid)
+            h2[S] = true, b++;
+          else
+            m.push(...se.errors);
+        }
+        if (b >= (R || 0))
+          m.length = c;
+        if (R === undefined && de === undefined && b === 0)
+          m.splice(c, 0, { instanceLocation: s, keyword: "contains", keywordLocation: y, error: "Array does not contain item matching schema." });
+        else if (R !== undefined && b < R)
+          m.push({ instanceLocation: s, keyword: "minContains", keywordLocation: `${i}/minContains`, error: `Array must contain at least ${R} items matching schema. Only ${b} items were found.` });
+        else if (de !== undefined && b > de)
+          m.push({ instanceLocation: s, keyword: "maxContains", keywordLocation: `${i}/maxContains`, error: `Array may contain at most ${de} items matching schema. ${b} items were found.` });
+      }
+    if (!v && fe !== undefined) {
+      let y = `${i}/unevaluatedItems`;
+      for (x;x < E; x++) {
+        if (h2[x])
+          continue;
+        let c = F(e[x], fe, t, n, o, u, `${s}/${x}`, y);
+        if (h2[x] = true, !c.valid)
+          m.push({ instanceLocation: s, keyword: "unevaluatedItems", keywordLocation: y, error: "Items did not match unevaluated items schema." }, ...c.errors);
+      }
+    }
+    if (j)
+      for (let y = 0;y < E; y++) {
+        let c = e[y], b = typeof c === "object" && c !== null;
+        for (let S = 0;S < E; S++) {
+          if (y === S)
+            continue;
+          let se = e[S];
+          if (c === se || b && (typeof se === "object" && se !== null) && _e(c, se))
+            m.push({ instanceLocation: s, keyword: "uniqueItems", keywordLocation: `${i}/uniqueItems`, error: `Duplicate items at indexes ${y} and ${S}.` }), y = Number.MAX_SAFE_INTEGER, S = Number.MAX_SAFE_INTEGER;
+        }
+      }
+  } else if (_ === "number") {
+    if (t === "4") {
+      if (d !== undefined && (D === true && e <= d || e < d))
+        m.push({ instanceLocation: s, keyword: "minimum", keywordLocation: `${i}/minimum`, error: `${e} is less than ${D ? "or equal to " : ""} ${d}.` });
+      if (O !== undefined && (U === true && e >= O || e > O))
+        m.push({ instanceLocation: s, keyword: "maximum", keywordLocation: `${i}/maximum`, error: `${e} is greater than ${U ? "or equal to " : ""} ${O}.` });
+    } else {
+      if (d !== undefined && e < d)
+        m.push({ instanceLocation: s, keyword: "minimum", keywordLocation: `${i}/minimum`, error: `${e} is less than ${d}.` });
+      if (O !== undefined && e > O)
+        m.push({ instanceLocation: s, keyword: "maximum", keywordLocation: `${i}/maximum`, error: `${e} is greater than ${O}.` });
+      if (D !== undefined && e <= D)
+        m.push({ instanceLocation: s, keyword: "exclusiveMinimum", keywordLocation: `${i}/exclusiveMinimum`, error: `${e} is less than ${D}.` });
+      if (U !== undefined && e >= U)
+        m.push({ instanceLocation: s, keyword: "exclusiveMaximum", keywordLocation: `${i}/exclusiveMaximum`, error: `${e} is greater than or equal to ${U}.` });
+    }
+    if (z !== undefined) {
+      let E = e % z;
+      if (Math.abs(0 - E) >= 0.00000011920929 && Math.abs(z - E) >= 0.00000011920929)
+        m.push({ instanceLocation: s, keyword: "multipleOf", keywordLocation: `${i}/multipleOf`, error: `${e} is not a multiple of ${z}.` });
+    }
+  } else if (_ === "string") {
+    let E = re === undefined && ie === undefined ? 0 : tt(e);
+    if (re !== undefined && E < re)
+      m.push({ instanceLocation: s, keyword: "minLength", keywordLocation: `${i}/minLength`, error: `String is too short (${E} < ${re}).` });
+    if (ie !== undefined && E > ie)
+      m.push({ instanceLocation: s, keyword: "maxLength", keywordLocation: `${i}/maxLength`, error: `String is too long (${E} > ${ie}).` });
+    if (pe !== undefined && !new RegExp(pe, "u").test(e))
+      m.push({ instanceLocation: s, keyword: "pattern", keywordLocation: `${i}/pattern`, error: "String does not match pattern." });
+    if (I !== undefined && Me[I] && !Me[I](e))
+      m.push({ instanceLocation: s, keyword: "format", keywordLocation: `${i}/format`, error: `String does not match format "${I}".` });
+  }
+  return { valid: m.length === 0, errors: m };
+}
+
+class rt {
+  schema;
+  draft;
+  shortCircuit;
+  lookup;
+  constructor(e, r = "2019-09", t = true) {
+    this.schema = e, this.draft = r, this.shortCircuit = t, this.lookup = ce(e);
+  }
+  validate(e) {
+    return F(e, this.schema, this.draft, this.lookup, this.shortCircuit);
+  }
+  addSchema(e, r) {
+    if (r)
+      e = { ...e, $id: r };
+    ce(e, this.lookup);
   }
 }
 var Ar = /^[A-Za-z]:\//;
@@ -1990,6 +2465,7 @@ async function realPathOf(path, fs) {
 
 // node_modules/@cmodjs/core/runtime/deadline.js
 var longestMs = 600000;
+var toolDeadline = { ms: 30000, job: "tool" };
 var callDeadline = { ms: 30000 };
 var listenerMs = 1e4;
 var hookMs = 1e4;
@@ -5002,6 +5478,14 @@ function fitsOption(declared, value) {
 // node_modules/@cmodjs/core/ui/elements.js
 var unbuilt = Symbol("an element built outside a render");
 var drawing;
+var lowerings = new Map;
+function hostComponent(name, canonical, lower) {
+  lowerings.set(name, lower);
+  return (props) => elementNamed(name, canonical(props));
+}
+function elementNamed(name, props) {
+  return drawing === undefined ? { [unbuilt]: { name, props } } : build(drawing, name, props);
+}
 function drawWith(table, draw, markdown) {
   const outer = drawing;
   const current = { table, markdown };
@@ -5013,10 +5497,12 @@ function drawWith(table, draw, markdown) {
   }
 }
 function element(name) {
-  const construct = (props) => drawing === undefined ? { [unbuilt]: { name, props } } : build(drawing, name, props);
-  return construct;
+  return (props) => elementNamed(name, props);
 }
 function build(current, name, props) {
+  const lower = lowerings.get(name);
+  if (lower !== undefined)
+    return lower(props);
   const ready = "children" in props ? { ...props, children: built(current, props.children) } : props;
   if (name === "Markdown" && current.markdown !== undefined)
     return current.markdown(ready);
@@ -5080,10 +5566,11 @@ function elementOf(data, keyPrefix, press) {
   const name = fields[elementKey];
   if (name === undefined)
     return Object.fromEntries(Object.entries(fields).map(([key, each]) => [key, elementOf(each, keyPrefix, press)]));
-  if (typeof name !== "string" || !Object.hasOwn(constructors, name))
-    throw new Error(`a widget drew ${String(name)}, which is not an element of ui/elements.js.`);
+  if (typeof name !== "string" || !(Object.hasOwn(constructors, name) || lowerings.has(name)))
+    throw new Error(`a widget drew ${String(name)}, which is not an element of ui/elements.js or ui/components.js.`);
   const props = elementOf(fields["props"], keyPrefix, press);
-  return constructors[name](typeof props["key"] === "string" ? { ...props, key: `${keyPrefix}${props["key"]}` } : props);
+  const keyed = typeof props["key"] === "string" ? { ...props, key: `${keyPrefix}${props["key"]}` } : props;
+  return Object.hasOwn(constructors, name) ? constructors[name](keyed) : elementNamed(name, keyed);
 }
 var focusable = new Set(["Button", "Input", "Select"]);
 function drawsFocusable(data, key) {
@@ -5133,6 +5620,7 @@ function filledButton({ key, label, hotkey, variant = "secondary", onPress }) {
     plain: true,
     key,
     label,
+    variant,
     ...hotkey === undefined ? {} : { hotkey },
     onPress,
     children: Text({ backgroundColor: isPrimary ? "claude" : "userMessageBackground", color: isPrimary ? "inverseText" : "text", bold: isPrimary, children: ` ${label} ` })
@@ -5141,6 +5629,7 @@ function filledButton({ key, label, hotkey, variant = "secondary", onPress }) {
 
 // node_modules/@cmodjs/core/ui/areas.js
 var AbovePrompt = "abovePrompt";
+var BelowPrompt = "belowPrompt";
 var Working = "working";
 var TurnEnd2 = "turnEnd";
 
@@ -6947,14 +7436,101 @@ function createWatches(claude, report) {
 }
 
 // node_modules/@cmodjs/core/ui/components.js
-function Tabs({ tabs, selected, onSelect, children }) {
-  const row = tabs.map(({ key, label, hotkey }) => key === selected ? Text({ children: [...hotkey === undefined ? [] : [Text({ color: "claude", children: hotkey }), ": "], Text({ bold: true, underline: true, children: label })] }) : Button({ plain: true, dimColor: true, key: `tab:${key}`, ...hotkey === undefined ? {} : { hotkey }, label, onPress: () => onSelect(key) }));
+var toneColors = { neutral: undefined, info: "suggestion", success: "success", warning: "warning", critical: "error" };
+var textOf2 = (tone) => {
+  const color = toneColors[tone];
+  return color === undefined ? { dimColor: true } : { color };
+};
+var Tabs = hostComponent("Tabs", ({ tabs, selected, onSelect, children }) => ({
+  key: "",
+  tabs: tabs.map(({ key, label, hotkey }) => ({ key, label, ...hotkey === undefined ? {} : { hotkey }, isSelected: key === selected, onSelect: () => onSelect(key) })),
+  ...children === undefined ? {} : { children }
+}), ({ key: prefix, tabs, children }) => {
+  const row = tabs.map(({ key, label, hotkey, isSelected, onSelect }) => isSelected ? Text({ children: [...hotkey === undefined ? [] : [Text({ color: "claude", children: hotkey }), ": "], Text({ bold: true, underline: true, children: label })] }) : Button({ plain: true, dimColor: true, key: `${prefix}tab:${key}`, ...hotkey === undefined ? {} : { hotkey }, label, onPress: onSelect }));
   return Box({ flexDirection: "column", gap: 1, children: [Box({ gap: 3, children: row }), children] });
+});
+var Split = hostComponent("Split", ({ children }) => ({ children }), ({ children }) => {
+  const width = `${Math.floor(100 / Math.max(children.length, 1))}%`;
+  return Box({ gap: 1, children: children.map((child) => Box({ width, children: child })) });
+});
+var Panel = hostComponent("Panel", ({ title, description, actions, children }) => ({ title, ...description === undefined ? {} : { description }, ...actions === undefined ? {} : { actions }, ...children === undefined ? {} : { children } }), ({ title, description, actions, children }) => {
+  const header = description === undefined && actions === undefined ? [] : [Box({ justifyContent: "space-between", columnGap: 2, flexWrap: "wrap", children: [Text({ dimColor: true, wrap: "wrap", children: description ?? "" }), ...actions === undefined ? [] : [Box({ gap: 2, flexShrink: 0, children: actions })]] })];
+  return Box({
+    flexDirection: "column",
+    flexGrow: 1,
+    children: [
+      Box({ flexDirection: "column", flexGrow: 1, gap: header.length === 0 ? 0 : 1, minWidth: [...title].length + 6, borderStyle: "round", borderColor: "subtle", paddingX: 1, children: [...header, children] }),
+      Box({ position: "absolute", top: 0, left: 2, children: Text({ bold: true, wrap: "truncate-end", children: ` ${title} ` }) })
+    ]
+  });
+});
+var Toggle = hostComponent("Toggle", ({ label, checked, onChange }) => ({ key: "", label, checked, onToggle: () => onChange(!checked) }), ({ key, label, checked, onToggle }) => Button({ plain: true, key: `${key}toggle:${label}`, label: `${checked ? "[x]" : "[ ]"} ${label}`, onPress: onToggle }));
+var cardColumns = 36;
+function card(text, isShown) {
+  return Box({
+    position: "absolute",
+    bottom: 1,
+    left: 0,
+    width: Math.min(text.length + 2, cardColumns),
+    ...isShown ? {} : { display: "none", hover: { display: "flex" } },
+    backgroundColor: "text",
+    paddingX: 1,
+    children: Text({ color: "inverseText", wrap: "wrap", children: text })
+  });
 }
-function Progress({ value, width = 24 }) {
-  const filled = Math.round(Math.min(Math.max(value, 0), 100) / 100 * width);
+var Tooltip = hostComponent("Tooltip", ({ text, children }) => ({ key: "", text, ...children === undefined ? {} : { children } }), ({ key, text, children }) => Box({ key: `${key}tooltip:${text}`, children: [children, card(text, false)] }));
+var Help = hostComponent("Help", ({ text, isOpen, onOpenChange }) => ({ key: "", text, isOpen, onToggle: () => onOpenChange(!isOpen) }), ({ key, text, isOpen, onToggle }) => Box({ key: `${key}help:${text}`, children: [Button({ plain: true, key: `${key}help-button:${text}`, label: "?", onPress: onToggle }), card(text, isOpen)] }));
+var Dialog = hostComponent("Dialog", ({ title, children, actions }) => ({ title, actions, ...children === undefined ? {} : { children } }), ({ title, children, actions }) => Box({ flexDirection: "column", gap: 1, paddingX: 1, children: [Text({ bold: true, children: title }), children, Box({ gap: 2, children: actions })] }));
+var Pagination = hostComponent("Pagination", ({ page, pages, onPage }) => ({
+  page,
+  pages,
+  ...page > 1 ? { onPrevious: () => onPage(page - 1) } : {},
+  ...page < pages ? { onNext: () => onPage(page + 1) } : {}
+}), ({ page, pages, onPrevious, onNext }) => Box({
+  gap: 2,
+  children: [
+    onPrevious === undefined ? Text({ dimColor: true, children: "p: Previous" }) : Button({ plain: true, hotkey: "p", label: "Previous", onPress: onPrevious }),
+    Text({ dimColor: true, children: `${page} of ${pages}` }),
+    onNext === undefined ? Text({ dimColor: true, children: "n: Next" }) : Button({ plain: true, hotkey: "n", label: "Next", onPress: onNext })
+  ]
+}));
+var Progress = hostComponent("Progress", ({ value, width = 24, label }) => ({ value: Math.min(Math.max(value, 0), 100), width, ...label === undefined ? {} : { label } }), ({ value, width }) => {
+  const filled = Math.round(value / 100 * width);
   return Text({ children: [Text({ color: "claude", children: "█".repeat(filled) }), Text({ color: "subtle", children: "░".repeat(width - filled) })] });
+});
+var List = hostComponent("List", ({ label, children }) => ({ label, ...children === undefined ? {} : { children } }), ({ children }) => Box({ flexDirection: "column", children }));
+var statusOf = (tone) => tone === undefined ? [] : [tone === "off" ? Text({ dimColor: true, children: "○ " }) : Text({ ...textOf2(tone), children: "● " })];
+function treeRow({ key, label, description, leading, trailing, tone, isSelected, depth = 0, isOpen, onToggle, onPress }) {
+  const opener = isOpen !== undefined && onToggle !== undefined ? Button({ plain: true, key: `${key}:toggle`, onPress: onToggle, children: Text({ dimColor: true, children: isOpen ? "▾" : "▸" }) }) : Text({ children: " " });
+  const shown = Text({ wrap: "truncate-end", ...isSelected === true ? { bold: true } : {}, children: [...statusOf(tone), ...leading === undefined ? [] : [Text({ dimColor: true, children: `${leading} ` })], label] });
+  const row = Box({ columnGap: 1, minWidth: 0, children: [opener, onPress === undefined ? shown : Button({ plain: true, key, onPress, children: shown })] });
+  const end = [...description === undefined ? [] : [Text({ dimColor: true, children: description })], ...trailing === undefined ? [] : [trailing]];
+  if (end.length === 0)
+    return Box({ paddingLeft: depth * 2, children: row });
+  return Box({ width: "100%", paddingLeft: depth * 2, columnGap: 1, justifyContent: "space-between", children: [row, Box({ flexShrink: 0, columnGap: 1, children: end })] });
 }
+var ListItem = hostComponent("ListItem", ({ onOpenChange, ...props }) => ({ ...props, ...onOpenChange === undefined || props.isOpen === undefined ? {} : { onToggle: () => onOpenChange(props.isOpen !== true) } }), (props) => {
+  const { key, label, description, leading, trailing, tone, isSelected, depth, onPress } = props;
+  if (depth !== undefined)
+    return treeRow(props);
+  const shown = [...statusOf(tone), ...leading === undefined ? [] : [Text({ dimColor: true, children: `${leading} ` })], label, ...description === undefined ? [] : [Text({ dimColor: true, children: ` ${description}` })], ...trailing === undefined ? [] : [" ", trailing]];
+  if (isSelected === true || onPress === undefined)
+    return Box({ ...isSelected === true ? { backgroundColor: "userMessageBackground" } : {}, paddingX: 1, children: Text({ wrap: "truncate-end", ...isSelected === true ? { bold: true } : {}, children: shown }) });
+  return Box({ paddingX: 1, children: Button({ plain: true, dimColor: true, key, onPress, children: shown }) });
+});
+var Badge = hostComponent("Badge", ({ tone = "neutral", children }) => ({ tone, children }), ({ tone, children }) => Text({ ...textOf2(tone), children }));
+var wordsOf = (children) => {
+  const all = [children].flat(Infinity).filter((each) => each !== null && each !== undefined && typeof each !== "boolean");
+  return all.every((each) => typeof each === "string" || typeof each === "number") ? all.join("") : undefined;
+};
+var Banner = hostComponent("Banner", ({ tone = "info", title, children, actions }) => ({ tone, ...title === undefined ? {} : { title }, ...children === undefined ? {} : { children }, ...actions === undefined ? {} : { actions } }), ({ tone, title, children, actions }) => Box({
+  flexDirection: "column",
+  children: [
+    ...title === undefined ? [] : [Text({ ...textOf2(tone), bold: true, wrap: "wrap", children: title })],
+    ...children === undefined ? [] : [wordsOf(children) === undefined ? children : Text({ ...title === undefined ? textOf2(tone) : {}, wrap: "wrap", children: wordsOf(children) })],
+    ...actions === undefined ? [] : [Box({ gap: 2, flexShrink: 0, children: actions })]
+  ]
+}));
 
 // node_modules/@cmodjs/core/runtime/lifecycle.js
 var listenMethods = [conversationMethods.subscribe, conversationMethods.watchBefore];
@@ -8851,6 +9427,60 @@ function oneLine(error) {
   return messageOf(error).replace(/\s*\n\s*/g, " ");
 }
 
+// node_modules/@cmodjs/core/jobs/tool.js
+var toolName = /^[A-Za-z0-9_-]{1,64}$/;
+function tool(options) {
+  const { name, description, inputSchema, isDeferred, execute } = options;
+  return (job) => {
+    const { mod, announce, reserveName } = job;
+    const { claude, router, report } = engineOf(mod);
+    if (!toolName.test(name))
+      throw new Error(`${mod.name}: "${name}" is not a tool name. Use 1 to 64 letters, digits, "_", or "-".`);
+    const properties = inputSchema?.properties ?? {};
+    const reserved = reservedKeys.filter((key) => Object.hasOwn(properties, key));
+    if (reserved.length > 0)
+      throw new Error(`${mod.name}: the ${name} tool's inputSchema has the property ${reserved.join(", ")}, which Claude Code keeps for itself. Rename it.`);
+    const named = reserveName("tool", name, `${mod.name}: the tool ${name} is already added. Give each tool its own name.`);
+    const validator = new rt(inputSchema ?? { type: "object" }, "2020-12", false);
+    let registered;
+    claude.tool.register({ name, description, ...inputSchema === undefined ? {} : { inputSchema }, ...isDeferred === undefined ? {} : { isDeferred } }).then((answer) => {
+      registered = answer.tool;
+    }, (error) => {
+      report({ id: `tool:${name}`, message: `The ${name} tool is not added`, error });
+    });
+    announce(`the ${name} tool`);
+    const answering = router.add("tool.call", async (e, next) => {
+      if (e.tool !== registered)
+        return next(e);
+      const input = toolInputOf(e);
+      const { valid, errors } = validator.validate(input);
+      if (!valid)
+        return { deny: `The ${name} tool input is not valid:
+${errors.map((error) => `- ${error.instanceLocation}: ${error.error}`).join(`
+`)}` };
+      try {
+        return { result: resultOf2(await withinDeadline(mod, toolDeadline, `the ${name} tool`, () => execute(input, mod))) };
+      } catch (error) {
+        return { deny: `The ${name} tool failed: ${messageOf(error)}` };
+      }
+    });
+    return {
+      name: `mcp__${claude.plugin.name}__${name}`,
+      remove() {
+        answering.remove();
+        named.remove();
+      }
+    };
+  };
+}
+function resultOf2(value) {
+  if (value === undefined || typeof value === "string")
+    return value;
+  if (Array.isArray(value) && value.every((block) => typeof block === "object" && block !== null && ("type" in block)))
+    return value;
+  return JSON.stringify(value);
+}
+
 // node_modules/@cmodjs/core/installer.js
 var stepId = /^[A-Za-z0-9_-]{1,64}$/;
 function checkSteps(name, steps) {
@@ -8890,7 +9520,7 @@ function defineMod(definition) {
     checkSteps(definition.name, definition.installer);
   return definition;
 }
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/answers.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/answers.ts
 function answersOf(effects) {
   const texts = (keys, separator) => {
     const found = effects.flatMap((effect) => Object.entries(effect).flatMap(([key, text]) => keys.includes(key) ? [String(text)] : []));
@@ -9134,7 +9764,7 @@ function addressOf(line) {
   return;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/connection.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/connection.ts
 function connect(mod, defaultMode) {
   const token = crypto.randomUUID();
   const store = mod.use(program({ command: ["claude-modes", "serve"], environment: { CLAUDE_MODES_TOKEN: token } }));
@@ -9176,7 +9806,7 @@ function connect(mod, defaultMode) {
   return connection;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/jobs/mode-commands.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/jobs/mode-commands.ts
 var ownCommands = new Set(["mode", "modes"]);
 function nextMode(definitions, current) {
   const names = definitions?.modes.map(({ name }) => name) ?? [];
@@ -9218,7 +9848,7 @@ function modeCommands(connection) {
   };
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/jobs/mode-gates.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/jobs/mode-gates.ts
 var targetKeys2 = ["command", "read", "write", "fetch", "subagent", "tool"];
 function modeNameOf(state, agentId) {
   const { modes } = state.memory;
@@ -9251,6 +9881,14 @@ function modeTransitions(connection) {
     job.announce("mode transitions");
   };
 }
+function factsOf(mode) {
+  return [
+    ...mode.deny.map((gate) => `refuses ${describe2(gate)}`),
+    ...mode.ask.map((gate) => `asks before ${describe2(gate)}`),
+    ...mode.lasts === "turn" ? ["lasts one turn"] : [],
+    ...mode.after.map(({ enter: next, ...target }) => `enters ${next} after ${describe2(target)}`)
+  ];
+}
 function describe2(target) {
   const key = targetKeys2.find((name) => target[name] !== undefined) ?? "tool";
   const patterns = listOf(target[key] ?? []);
@@ -9273,7 +9911,7 @@ function listOf(patterns) {
   return typeof patterns === "string" ? [patterns] : patterns;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/jobs/rule-modes.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/jobs/rule-modes.ts
 function offRules(state, check) {
   const mode = modeNameOf(state, check.task);
   const off = check.rules.filter(({ metadata }) => typeof metadata["mode"] === "string" && metadata["mode"] !== mode).map(({ id }) => [id, "off"]);
@@ -9301,14 +9939,14 @@ function ruleModes() {
   };
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/protocol.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/protocol.ts
 function rulesOf(mode) {
   return [`Mode: ${mode.name}${mode.description === "" ? "" : ` (${mode.description})`}`, mode.rules].filter((part) => part !== "").join(`
 
 `);
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/state.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/state.ts
 var initialState = {
   memory: {
     modes: { main: undefined, agents: {} },
@@ -9321,7 +9959,7 @@ var initialState = {
   }
 };
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/components/settings-tab.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/components/settings-tab.tsx
 function SettingsTab({ mod, enter, defaultMode }) {
   const { definitions, modes, failure } = mod.state.memory;
   if (definitions === null)
@@ -9375,12 +10013,7 @@ function SettingsTab({ mod, enter, defaultMode }) {
   }, "A saved change applies to the next event.")));
 }
 function ModeLine({ mode, isCurrent, enter }) {
-  const facts = [
-    ...mode.deny.map((gate) => `refuses ${describe2(gate)}`),
-    ...mode.ask.map((gate) => `asks before ${describe2(gate)}`),
-    mode.lasts === "turn" ? "lasts one turn" : undefined,
-    ...mode.after.map(({ enter: next, ...target }) => `enters ${next} after ${describe2(target)}`)
-  ].filter((fact) => fact !== undefined);
+  const facts = factsOf(mode);
   return /* @__PURE__ */ h(Box, {
     flexDirection: "column"
   }, /* @__PURE__ */ h(Box, {
@@ -9398,7 +10031,7 @@ function ModeLine({ mode, isCurrent, enter }) {
   }, `    ${fact}`)));
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/views/modes.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/views/modes.tsx
 function modesView(enter, defaultMode) {
   return {
     id: "modes",
@@ -9425,12 +10058,12 @@ function shownTab(mod) {
   return mod.state.memory.modeTab === null ? "settings" : mod.state.session.tab;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/widgets/mode.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/widgets/mode.tsx
 function modeWidget(cycle) {
   return {
     id: "mode",
     title: "Mode",
-    areas: [AbovePrompt],
+    areas: [BelowPrompt, AbovePrompt],
     render: (mod) => {
       const { main } = mod.state.memory.modes;
       return main === undefined ? undefined : /* @__PURE__ */ h(Button, {
@@ -9443,7 +10076,7 @@ function modeWidget(cycle) {
   };
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/src/mod.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/src/mod.tsx
 var causeText = (cause) => cause.kind === "start" || cause.kind === "turn-end" ? cause.kind : `${cause.kind} ${cause.name}`;
 var commandsOf = (name, input) => name === "Bash" && typeof input["command"] === "string" ? parseShell(input["command"]).commands.map(({ argv }) => argv) : [];
 function filesOf(name, input, cwd) {
@@ -9456,6 +10089,19 @@ function filesOf(name, input, cwd) {
     return { read: [], changed: [] };
   const { reads, writes } = parseShell(input["command"]);
   return { read: reads.map((file) => ve(cwd, file)), changed: writes.map((file) => ve(cwd, file)) };
+}
+function listOfModes(state) {
+  const defined = state.memory.definitions?.modes ?? [];
+  if (defined.length === 0)
+    return "No modes are defined. A mode is a Markdown file in ~/.claude/cmods/modes/ or a project's .claude/cmods/modes/.";
+  const { main, agents } = state.memory.modes;
+  const lines = defined.flatMap((mode) => [
+    `- ${mode.name}${mode.description === "" ? "" : `: ${mode.description}`}${mode.name === main ? " (the session is in it)" : ""}`,
+    ...factsOf(mode).map((fact) => `  ${fact}`)
+  ]);
+  const subagents = Object.entries(agents).map(([agent, mode]) => `- ${agent} is in ${mode}`);
+  return [`The modes, in order. The session is ${main === undefined ? "in no mode" : `in ${main}`}.`, ...lines, ...subagents.length === 0 ? [] : ["", "Subagents:", ...subagents]].join(`
+`);
 }
 var modes = defineMod({
   name: "modes",
@@ -9505,6 +10151,12 @@ var modes = defineMod({
         const failure = named === "" ? await cycle("mode") : await enter(named, { kind: "command", name: "mode" });
         return failure === undefined ? undefined : `/mode failed: ${failure}`;
       }
+    }));
+    mod.use(tool({
+      name: "list_modes",
+      description: "List Modes' modes in order, with what each refuses, asks about, and enters, and the mode the session and each subagent is in.",
+      isDeferred: true,
+      execute: (_input, current) => listOfModes(current.state)
     }));
     mod.use(slashCommand({
       name: "modes",
@@ -9603,7 +10255,7 @@ var modes = defineMod({
   }
 });
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-YQ9jpX/release/hooks/register.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-cx6tGp/release/hooks/register.ts
 function register(addHook, options) {
   registerMod(addHook, modes, options);
   registerPermissionCheck(addHook);

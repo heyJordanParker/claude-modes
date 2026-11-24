@@ -1,6 +1,7 @@
 import { permissions } from '../node_modules/@cmodjs/core/jobs/permissions.js'
 import { prompt } from '../node_modules/@cmodjs/core/jobs/prompt.js'
 import { slashCommand } from '../node_modules/@cmodjs/core/jobs/slash-command.js'
+import { tool } from '../node_modules/@cmodjs/core/jobs/tool.js'
 import { defineMod, messageOf, sessions } from '../node_modules/@cmodjs/core/mod.js'
 import { option } from '../node_modules/@cmodjs/core/options.js'
 import { resolve } from '../node_modules/@cmodjs/core/path.js'
@@ -8,10 +9,10 @@ import { parseShell } from '../node_modules/@cmodjs/core/shell.js'
 import { answersOf } from './answers.js'
 import { connect } from './connection.js'
 import { modeCommands, nextMode } from './jobs/mode-commands.js'
-import { modeNameOf, modeOf, modeRules, modeTransitions } from './jobs/mode-gates.js'
+import { factsOf, modeNameOf, modeOf, modeRules, modeTransitions } from './jobs/mode-gates.js'
 import { ruleModes } from './jobs/rule-modes.js'
 import { rulesOf, type EntryCause } from './protocol.js'
-import { initialState } from './state.js'
+import { initialState, type ModesState } from './state.js'
 import { modesView } from './views/modes.js'
 import { modeWidget } from './widgets/mode.js'
 
@@ -28,6 +29,18 @@ function filesOf(name: string, input: Fields, cwd: string): { readonly read: rea
   if (name !== 'Bash' || typeof input['command'] !== 'string') return { read: [], changed: [] }
   const { reads, writes } = parseShell(input['command'])
   return { read: reads.map((file) => resolve(cwd, file)), changed: writes.map((file) => resolve(cwd, file)) }
+}
+
+function listOfModes(state: ModesState): string {
+  const defined = state.memory.definitions?.modes ?? []
+  if (defined.length === 0) return 'No modes are defined. A mode is a Markdown file in ~/.claude/cmods/modes/ or a project\'s .claude/cmods/modes/.'
+  const { main, agents } = state.memory.modes
+  const lines = defined.flatMap((mode) => [
+    `- ${mode.name}${mode.description === '' ? '' : `: ${mode.description}`}${mode.name === main ? ' (the session is in it)' : ''}`,
+    ...factsOf(mode).map((fact) => `  ${fact}`),
+  ])
+  const subagents = Object.entries(agents).map(([agent, mode]) => `- ${agent} is in ${mode}`)
+  return [`The modes, in order. The session is ${main === undefined ? 'in no mode' : `in ${main}`}.`, ...lines, ...(subagents.length === 0 ? [] : ['', 'Subagents:', ...subagents])].join('\n')
 }
 
 export const modes = defineMod({
@@ -82,6 +95,14 @@ export const modes = defineMod({
           const failure = named === '' ? await cycle('mode') : await enter(named, { kind: 'command', name: 'mode' })
           return failure === undefined ? undefined : `/mode failed: ${failure}`
         },
+      }),
+    )
+    mod.use(
+      tool({
+        name: 'list_modes',
+        description: "List Modes' modes in order, with what each refuses, asks about, and enters, and the mode the session and each subagent is in.",
+        isDeferred: true,
+        execute: (_input, current) => listOfModes(current.state),
       }),
     )
     mod.use(

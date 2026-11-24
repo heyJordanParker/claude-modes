@@ -49,6 +49,15 @@ export function modeTransitions(connection: Connection): Job<void, ModesState> {
   }
 }
 
+export function factsOf(mode: ModeSpec): readonly string[] {
+  return [
+    ...mode.deny.map((gate) => `refuses ${describe(gate)}`),
+    ...mode.ask.map((gate) => `asks before ${describe(gate)}`),
+    ...(mode.lasts === 'turn' ? ['lasts one turn'] : []),
+    ...mode.after.map(({ enter: next, ...target }) => `enters ${next} after ${describe(target)}`),
+  ]
+}
+
 export function describe(target: Target): string {
   const key = targetKeys.find((name) => target[name] !== undefined) ?? 'tool'
   const patterns = listOf(target[key] ?? [])
