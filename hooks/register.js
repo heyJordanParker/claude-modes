@@ -9516,7 +9516,7 @@ function defineMod(definition) {
     checkSteps(definition.name, definition.installer);
   return definition;
 }
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/answers.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/answers.ts
 function answersOf(effects) {
   const texts = (keys, separator) => {
     const found = effects.flatMap((effect) => Object.entries(effect).flatMap(([key, text]) => keys.includes(key) ? [String(text)] : []));
@@ -9760,13 +9760,12 @@ function addressOf(line) {
   return;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/connection.ts
-function connect(mod, defaultMode) {
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/connection.ts
+function connect(mod) {
   const token = crypto.randomUUID();
-  const store = mod.use(program({ command: ["claude-modes", "serve"], environment: { CLAUDE_MODES_TOKEN: token } }));
-  let version = 0;
+  const claudeModes = mod.use(program({ command: ["claude-modes", "serve"], environment: { CLAUDE_MODES_TOKEN: token } }));
   const post = async (path, body) => {
-    const { url } = await store.ready();
+    const { url } = await claudeModes.ready();
     const response = await http.fetch(`${url}${path}`, {
       method: "POST",
       headers: { "content-type": "application/json", authorization: `Bearer ${token}` },
@@ -9777,39 +9776,69 @@ function connect(mod, defaultMode) {
       throw new Error(answer.error ?? `${path} answered ${response.status}`);
     return answer;
   };
-  const session = () => ({ id: sessions.current.id, projectRoot: sessions.current.project, cwd: sessions.current.cwd, defaultMode: defaultMode() });
   const connection = {
-    post,
-    session,
-    async event(event, input, commands) {
-      const answer = await post("/event", { session: session(), event, input, commands });
-      mod.state.memory.modes = answer.modes;
-      if (answer.version !== version)
+    async hook(event, input, context) {
+      const request = { projectRoot: sessions.current.project, event, input, context };
+      const answer = await post("/hook", request);
+      if (answer.version !== mod.state.memory.definitions?.version)
         await connection.refresh();
-      return answer;
-    },
-    async enter(mode, agentId, cause) {
-      const { modes } = await post("/enter", { session: session(), mode, agentId, cause });
-      mod.state.memory.modes = modes;
-      return modes;
+      return answer.effects;
     },
     async refresh() {
-      const definitions = await post("/definitions", { projectRoot: sessions.current.project });
-      version = definitions.version;
-      mod.state.memory.definitions = definitions;
+      mod.state.memory.definitions = await post("/definitions", { projectRoot: sessions.current.project });
+      mod.state.memory.failure = "";
     }
   };
   return connection;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/jobs/mode-commands.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/mode-state.ts
+function modeNameOf(state, agentId) {
+  const { modes } = state.session;
+  return (agentId === undefined ? undefined : modes.agents[agentId]) ?? modes.main;
+}
+function modeOf(state, agentId) {
+  const name = modeNameOf(state, agentId);
+  return state.memory.definitions?.modes.find((mode) => mode.name === name);
+}
+function enterMode(state, mode, agentId, cause) {
+  const names = state.memory.definitions?.modes.map(({ name }) => name) ?? [];
+  if (!names.includes(mode))
+    throw new Error(`"${mode}" is not a mode. The modes are ${names.join(", ") || "not defined yet"}.`);
+  const { modes } = state.session;
+  const current = agentId === undefined ? modes.main : modes.agents[agentId];
+  if (current === mode)
+    return;
+  if (agentId === undefined) {
+    state.session.previous = current ?? null;
+    state.session.modes = { ...modes, main: mode };
+  } else {
+    state.session.modes = { ...modes, agents: { ...modes.agents, [agentId]: mode } };
+  }
+  state.session.entries = [...state.session.entries, { mode, agentId, cause, at: Date.now() }];
+}
+function skillModeOf(state, skill) {
+  const skillModes = state.memory.definitions?.skillModes ?? {};
+  return skillModes[skill] ?? skillModes[skill.slice(skill.lastIndexOf(":") + 1)];
+}
+function rulesToTell(state, agentId, always) {
+  const own = state.session.modes.agents[agentId];
+  if (!always && (own === undefined || state.session.told[agentId] === own))
+    return;
+  const mode = modeOf(state, agentId);
+  if (mode !== undefined)
+    state.session.told = { ...state.session.told, [agentId]: mode.name };
+  return mode;
+}
+
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/jobs/mode-commands.ts
 var ownCommands = new Set(["mode", "modes"]);
 function nextMode(definitions, current) {
   const names = definitions?.modes.map(({ name }) => name) ?? [];
   const index = current === undefined ? -1 : names.indexOf(current);
   return names[(index + 1) % names.length];
 }
-function modeCommands(connection) {
+function modeCommands() {
   return ({ mod, announce }) => {
     const added = new Set;
     announce("a command for each mode");
@@ -9828,7 +9857,7 @@ function modeCommands(connection) {
                 if (!mod.state.memory.definitions?.modes.some(({ name }) => name === mode.name))
                   return `/${mode.name} no longer applies: its mode file is gone.`;
                 try {
-                  await connection.enter(mode.name, undefined, { kind: "command", name: mode.name });
+                  enterMode(mod.state, mode.name, undefined, { kind: "command", name: mode.name });
                   return;
                 } catch (error) {
                   return `/${mode.name} failed: ${messageOf(error)}`;
@@ -9844,16 +9873,8 @@ function modeCommands(connection) {
   };
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/jobs/mode-gates.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/jobs/mode-gates.ts
 var targetKeys2 = ["command", "read", "write", "fetch", "subagent", "tool"];
-function modeNameOf(state, agentId) {
-  const { modes } = state.memory;
-  return (agentId === undefined ? undefined : modes.agents[agentId]) ?? modes.main;
-}
-function modeOf(state, agentId) {
-  const name = modeNameOf(state, agentId);
-  return state.memory.definitions?.modes.find((mode) => mode.name === name);
-}
 function modeRules(state) {
   const modes = state.memory.definitions?.modes ?? [];
   const rulesOf = (gates, verb) => modes.flatMap((mode) => gates(mode).map(({ reason, ...target }) => {
@@ -9862,14 +9883,14 @@ function modeRules(state) {
   }));
   return { deny: rulesOf(({ deny }) => deny, "refuses"), ask: rulesOf(({ ask }) => ask, "asks before") };
 }
-function modeTransitions(connection) {
+function modeTransitions() {
   return (job) => {
     afterCall(job, async (call, workspace) => {
       const mode = modeOf(job.mod.state, call.agentId);
       for (const { enter, ...target } of mode?.after ?? []) {
         if (await decidePermission({ deny: [target] }, call, workspace, job.mod, async (run) => run()) === undefined)
           continue;
-        await connection.enter(enter, call.agentId, { kind: "transition", name: `${mode?.name ?? ""} after ${describe2(target)}` });
+        enterMode(job.mod.state, enter, call.agentId, { kind: "transition", name: `${mode?.name ?? ""} after ${describe2(target)}` });
         return [`The session is now in ${enter} mode.`];
       }
       return [];
@@ -9907,7 +9928,7 @@ function listOf(patterns) {
   return typeof patterns === "string" ? [patterns] : patterns;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/jobs/rule-modes.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/jobs/rule-modes.ts
 function offRules(state, check) {
   const mode = modeNameOf(state, check.task);
   const off = check.rules.filter(({ metadata }) => typeof metadata["mode"] === "string" && metadata["mode"] !== mode).map(({ id }) => [id, "off"]);
@@ -9933,29 +9954,33 @@ function ruleModes() {
   };
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/protocol.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/protocol.ts
 function rulesOf(mode) {
   return [`Mode: ${mode.name}${mode.description === "" ? "" : ` (${mode.description})`}`, mode.rules].filter((part) => part !== "").join(`
 
 `);
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/state.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/state.ts
 var initialState = {
   memory: {
-    modes: { main: undefined, agents: {} },
     definitions: null,
     modeTab: null,
     failure: ""
   },
   session: {
-    tab: "settings"
+    tab: "settings",
+    modes: { main: undefined, agents: {} },
+    previous: null,
+    told: {},
+    entries: []
   }
 };
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/components/settings-tab.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/components/settings-tab.tsx
 function SettingsTab({ mod, enter, defaultMode }) {
-  const { definitions, modes, failure } = mod.state.memory;
+  const { definitions, failure } = mod.state.memory;
+  const { modes } = mod.state.session;
   if (definitions === null)
     return /* @__PURE__ */ h(Text, {
       dimColor: true
@@ -10004,7 +10029,7 @@ function SettingsTab({ mod, enter, defaultMode }) {
     wrap: "truncate-start"
   }, folder)), /* @__PURE__ */ h(Text, {
     dimColor: true
-  }, "A saved change applies to the next event.")));
+  }, "A saved change applies to the next prompt.")));
 }
 function ModeLine({ mode, isCurrent, enter }) {
   const facts = factsOf(mode);
@@ -10027,7 +10052,7 @@ function ModeLine({ mode, isCurrent, enter }) {
   }, `    ${fact}`)));
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/views/modes.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/views/modes.tsx
 function modesView(enter, defaultMode) {
   return {
     id: "modes",
@@ -10054,14 +10079,14 @@ function shownTab(mod) {
   return mod.state.memory.modeTab === null ? "settings" : mod.state.session.tab;
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/widgets/mode.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/widgets/mode.tsx
 function modeWidget(cycle) {
   return {
     id: "mode",
     title: "Mode",
     areas: [BelowPrompt, AbovePrompt],
     render: (mod) => {
-      const { main } = mod.state.memory.modes;
+      const { main } = mod.state.session.modes;
       if (main === undefined)
         return;
       const color = modeOf(mod.state, undefined)?.color;
@@ -10077,7 +10102,7 @@ function modeWidget(cycle) {
   };
 }
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/src/mod.tsx
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/src/mod.tsx
 var causeText = (cause) => cause.kind === "start" || cause.kind === "turn-end" ? cause.kind : `${cause.kind} ${cause.name}`;
 var commandsOf = (name, input) => name === "Bash" && typeof input["command"] === "string" ? parseShell(input["command"]).commands.map(({ argv }) => argv) : [];
 function filesOf(name, input, cwd) {
@@ -10095,13 +10120,19 @@ function listOfModes(state) {
   const defined = state.memory.definitions?.modes ?? [];
   if (defined.length === 0)
     return "No modes are defined. A mode is a Markdown file in ~/.claude/cmods/modes/ or a project's .claude/cmods/modes/.";
-  const { main, agents } = state.memory.modes;
+  const { main, agents } = state.session.modes;
   const lines = defined.flatMap((mode) => [
     `- ${mode.name}${mode.description === "" ? "" : `: ${mode.description}`}${mode.name === main ? " (the session is in it)" : ""}`,
     ...factsOf(mode).map((fact) => `  ${fact}`)
   ]);
   const subagents = Object.entries(agents).map(([agent, mode]) => `- ${agent} is in ${mode}`);
-  return [`The modes, in order. The session is ${main === undefined ? "in no mode" : `in ${main}`}.`, ...lines, ...subagents.length === 0 ? [] : ["", "Subagents:", ...subagents]].join(`
+  const problems = (state.memory.definitions?.problems ?? []).map(({ source, message }) => `- ${source}: ${message}`);
+  return [
+    `The modes, in order. The session is ${main === undefined ? "in no mode" : `in ${main}`}.`,
+    ...lines,
+    ...subagents.length === 0 ? [] : ["", "Subagents:", ...subagents],
+    ...problems.length === 0 ? [] : ["", "Problems:", ...problems]
+  ].join(`
 `);
 }
 var modes = defineMod({
@@ -10115,49 +10146,52 @@ var modes = defineMod({
   },
   setup(mod) {
     const defaultMode = () => mod.options.defaultMode;
-    const link = connect(mod, defaultMode);
-    const commands = mod.use(modeCommands(link));
+    const link = connect(mod);
+    const commands = mod.use(modeCommands());
     mod.use(permissions(modeRules));
-    mod.use(modeTransitions(link));
+    mod.use(modeTransitions());
     mod.use(ruleModes());
     mod.use(prompt({ name: "Mode", prompt: (_input, current) => {
       const mode = modeOf(current.state, undefined);
       return mode === undefined ? undefined : rulesOf(mode);
     } }));
-    const enter = async (mode, cause) => {
+    const enter = (mode, cause) => {
       try {
-        await link.enter(mode, undefined, cause);
+        enterMode(mod.state, mode, undefined, cause);
         return;
       } catch (error) {
         return messageOf(error);
       }
     };
-    const cycle = async (by) => {
-      const mode = nextMode(mod.state.memory.definitions, mod.state.memory.modes.main);
+    const cycle = (by) => {
+      const mode = nextMode(mod.state.memory.definitions, mod.state.session.modes.main);
       if (mode === undefined)
         return "No modes yet. Add a mode file to ~/.claude/cmods/modes/, such as review.md.";
       return enter(mode, { kind: "command", name: by });
     };
-    const toastFailure = (mode) => (failure) => void (failure === undefined || mod.toast.error(`Modes could not enter ${mode}`, { description: failure }));
-    const view = mod.views.add(modesView((mode) => void enter(mode, { kind: "command", name: "panel" }).then(toastFailure(mode)), defaultMode));
-    mod.widgets.add(modeWidget(() => void cycle("band").then(toastFailure("the next mode"))));
-    mod.hotkeys.cycle.onPress(() => cycle("hotkey").then(toastFailure("the next mode")));
+    const toastFailure = (mode, failure) => void (failure === undefined || mod.toast.error(`Modes could not enter ${mode}`, { description: failure }));
+    const view = mod.views.add(modesView((mode) => toastFailure(mode, enter(mode, { kind: "command", name: "panel" })), defaultMode));
+    mod.widgets.add(modeWidget(() => toastFailure("the next mode", cycle("band"))));
+    mod.hotkeys.cycle.onPress(() => toastFailure("the next mode", cycle("hotkey")));
     mod.use(slashCommand({
       name: "mode",
       description: "Switch to the next mode, or to the mode you name",
       argumentHint: "[mode]",
       immediate: true,
-      reply: async ({ args }) => {
+      reply: ({ args }) => {
         const named = args.trim();
-        const failure = named === "" ? await cycle("mode") : await enter(named, { kind: "command", name: "mode" });
+        const failure = named === "" ? cycle("mode") : enter(named, { kind: "command", name: "mode" });
         return failure === undefined ? undefined : `/mode failed: ${failure}`;
       }
     }));
     mod.use(tool({
       name: "list_modes",
-      description: "List Modes' modes in order, with what each refuses, asks about, and enters, and the mode the session and each subagent is in.",
+      description: "List Modes' modes in order, with what each refuses, asks about, and enters, the mode the session and each subagent is in, and each problem in the mode files and hook scripts.",
       isDeferred: true,
-      execute: (_input, current) => listOfModes(current.state)
+      execute: async () => {
+        await refresh();
+        return listOfModes(mod.state);
+      }
     }));
     mod.use(slashCommand({
       name: "modes",
@@ -10165,19 +10199,46 @@ var modes = defineMod({
       immediate: true,
       reply: () => view.toggle({ focus: true })
     }));
-    const event = async (name, place, fields, commandLines = []) => {
+    const syncCommands = () => {
+      const { definitions } = mod.state.memory;
+      if (definitions !== null)
+        commands.sync(definitions);
+    };
+    const refresh = async () => {
+      try {
+        await link.refresh();
+        syncCommands();
+      } catch (error) {
+        mod.state.memory.failure = `The claude-modes program did not answer: ${messageOf(error)}`;
+      }
+    };
+    const enterAs = (mode, agentId, cause) => {
+      if (mode !== undefined)
+        enterMode(mod.state, mode, agentId, cause);
+    };
+    const runHooks = async (name, place, fields, commandLines = []) => {
+      const mode = modeNameOf(mod.state, place.task);
+      const hooks = mod.state.memory.definitions?.hooks ?? [];
+      if (!hooks.some(({ events, modes: names }) => events.includes(name) && (names.length === 0 || mode !== undefined && names.includes(mode))))
+        return [];
+      const cwd = place.cwd ?? sessions.current.cwd;
       const input = {
         hook_event_name: name,
         session_id: sessions.current.id,
-        cwd: place.cwd ?? sessions.current.cwd,
-        ...sessions.current.transcriptPath === undefined ? {} : { transcript_path: sessions.current.transcriptPath },
+        cwd,
         ...place.task === undefined ? {} : { agent_id: place.task },
         ...place.agentType === undefined ? {} : { agent_type: place.agentType },
         ...fields
       };
-      const answer = await link.event(name, input, commandLines);
-      syncCommands();
-      return answersOf(answer.effects);
+      const effects = await link.hook(name, input, { session: { id: sessions.current.id, projectRoot: sessions.current.project, cwd }, mode, agentId: place.task, commands: commandLines });
+      for (const effect of effects)
+        if ("enter" in effect)
+          enterMode(mod.state, effect.enter, place.task, { kind: "hook", name: effect.hook });
+      return effects;
+    };
+    const toldRules = (agentId, always) => {
+      const mode = agentId === undefined ? undefined : rulesToTell(mod.state, agentId, always);
+      return mode === undefined ? [] : [{ context: rulesOf(mode) }];
     };
     const toolFields = (call, cwd) => ({
       tool_name: call.name,
@@ -10186,63 +10247,81 @@ var modes = defineMod({
       files: filesOf(call.name, call.input, cwd)
     });
     sessions.current.beforeSessionStart(async (start) => {
-      const { note } = await event("SessionStart", start, { source: start.source });
+      await refresh();
+      const definitions = mod.state.memory.definitions;
+      if (mod.state.session.modes.main === undefined && definitions !== null) {
+        const fromAgent = start.agentType === undefined ? undefined : definitions.agentModes[start.agentType];
+        const names = definitions.modes.map(({ name }) => name);
+        const initial = fromAgent ?? (names.includes(defaultMode()) ? defaultMode() : names[0]);
+        enterAs(initial, undefined, fromAgent === undefined ? { kind: "start" } : { kind: "agent", name: start.agentType ?? "" });
+      }
+      const { note } = answersOf(await runHooks("SessionStart", start, { source: start.source }));
       return note === undefined ? undefined : { note };
     });
-    sessions.current.onSessionEnd((end) => event("SessionEnd", end, { reason: end.reason }));
+    sessions.current.onSessionEnd((end) => runHooks("SessionEnd", end, { reason: end.reason }));
     const startedTasks = new Set;
     sessions.current.goal.beforePrompt(async (message) => {
       if (message.task === undefined) {
-        const { refuse, note } = await event("UserPromptSubmit", {}, { prompt: message.text });
+        await refresh();
+        const skill = /^\/([^\s]+)/.exec(message.text)?.[1];
+        if (skill !== undefined)
+          enterAs(skillModeOf(mod.state, skill), undefined, { kind: "skill", name: skill });
+        const { refuse, note } = answersOf(await runHooks("UserPromptSubmit", {}, { prompt: message.text }));
         return refuse !== undefined ? { refuse } : note === undefined ? undefined : { note };
       }
       if (startedTasks.has(message.task))
         return;
       startedTasks.add(message.task);
-      const { note } = await event("SubagentStart", message, { agent_type: message.agentType });
+      const agentType = message.agentType;
+      if (agentType !== undefined)
+        enterAs(mod.state.memory.definitions?.agentModes[agentType], message.task, { kind: "agent", name: agentType });
+      const { note } = answersOf([...await runHooks("SubagentStart", message, { agent_type: agentType }), ...toldRules(message.task, true)]);
       return note === undefined ? undefined : { note };
     });
     sessions.current.beforePermissionCheck(async (check) => {
-      const { refuse, ask, note } = await event("PreToolUse", check, toolFields(check, check.cwd), commandsOf(check.name, check.input));
+      const effects = [...await runHooks("PreToolUse", check, toolFields(check, check.cwd), commandsOf(check.name, check.input)), ...toldRules(check.task, false)];
+      const { refuse, ask, note } = answersOf(effects);
       const withNote = note === undefined ? {} : { note };
       return refuse !== undefined ? { refuse, ...withNote } : ask !== undefined ? { ask, ...withNote } : note === undefined ? undefined : { note };
     });
     sessions.current.goal.beforeToolResult(async (result) => {
+      const skill = result.name === "Skill" ? result.input["skill"] : undefined;
+      if (typeof skill === "string")
+        enterAs(skillModeOf(mod.state, skill), result.task, { kind: "skill", name: skill });
       const outcome = result.isError ? { error: typeof result.output === "string" ? result.output : JSON.stringify(result.output) } : { tool_response: result.output };
-      const { note } = await event(result.isError ? "PostToolUseFailure" : "PostToolUse", { task: result.task, cwd: result.cwd }, { ...toolFields(result, result.cwd), ...outcome }, commandsOf(result.name, result.input));
+      const event = result.isError ? "PostToolUseFailure" : "PostToolUse";
+      const effects = [...await runHooks(event, { task: result.task, cwd: result.cwd }, { ...toolFields(result, result.cwd), ...outcome }, commandsOf(result.name, result.input)), ...toldRules(result.task, false)];
+      const { note } = answersOf(effects);
       return note === undefined ? undefined : { note };
     });
     sessions.current.goal.beforeTurnEnd(async (turn) => {
       const { task, agentType } = turn.prompt;
       const ending = turn.answer === undefined ? {} : { last_assistant_message: turn.answer };
-      const { refuse, note } = task === undefined ? await event("Stop", {}, { stop_hook_active: turn.isAfterRefusal === true, ...ending }) : await event("SubagentStop", turn.prompt, { agent_type: agentType, stop_hook_active: turn.isAfterRefusal === true, ...ending });
+      if (task !== undefined) {
+        const { refuse, note } = answersOf(await runHooks("SubagentStop", turn.prompt, { agent_type: agentType, stop_hook_active: turn.isAfterRefusal === true, ...ending }));
+        return refuse !== undefined ? { refuse } : note === undefined ? undefined : { note };
+      }
+      const { previous } = mod.state.session;
+      if (modeOf(mod.state, undefined)?.lasts === "turn" && previous !== null)
+        enterAs(previous, undefined, { kind: "turn-end" });
+      const { refuse, note } = answersOf(await runHooks("Stop", {}, { stop_hook_active: turn.isAfterRefusal === true, ...ending }));
       return refuse !== undefined ? { refuse } : note === undefined ? undefined : { note };
     });
     sessions.current.beforeContextEnd(async () => {
-      await event("PreCompact", {}, {});
+      await runHooks("PreCompact", {}, {});
       return;
     });
-    sessions.current.onNotification((notification) => event("Notification", notification, { message: notification.text }));
-    sessions.current.onCwdChange(() => link.refresh());
-    const syncCommands = () => {
-      const { definitions } = mod.state.memory;
-      if (definitions !== null)
-        commands.sync(definitions);
-    };
-    link.refresh().then(syncCommands, (error) => {
-      mod.state.memory.failure = `The claude-modes program did not answer: ${messageOf(error)}`;
-    });
+    sessions.current.onNotification((notification) => runHooks("Notification", notification, { message: notification.text }));
+    sessions.current.onCwdChange(() => refresh());
+    refresh();
     return {
       current: async ({ agentId }) => ({ mode: modeNameOf(mod.state, agentId) ?? null }),
       enter: async ({ mode, agentId, by }) => {
-        await link.enter(mode, agentId, { kind: "mod", name: by });
+        enterMode(mod.state, mode, agentId, { kind: "mod", name: by });
         return { mode };
       },
       modes: async () => ({ modes: (mod.state.memory.definitions?.modes ?? []).map(({ name, description, order }) => ({ name, description, order })) }),
-      entries: async () => {
-        const { entries } = await link.post("/entries", { sessionId: sessions.current.id });
-        return { entries: entries.map(({ mode, agentId, cause, at }) => ({ mode, cause: causeText(cause), at, ...agentId === undefined ? {} : { agentId } })) };
-      },
+      entries: async () => ({ entries: mod.state.session.entries.map(({ mode, agentId, cause, at }) => ({ mode, cause: causeText(cause), at, ...agentId === undefined ? {} : { agentId } })) }),
       showTab: async ({ title, markdown }) => {
         mod.state.memory.modeTab = { title, markdown };
         mod.state.session.tab = "mode";
@@ -10256,7 +10335,7 @@ var modes = defineMod({
   }
 });
 
-// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-fG0IRJ/release/hooks/register.ts
+// ../../../../../private/var/folders/q2/p1t6rgxj5fj32g1dc7dmd49r0000gn/T/cmod-publish-modes-ZSDX7e/release/hooks/register.ts
 function register(addHook, options) {
   registerMod(addHook, modes, options);
   registerPermissionCheck(addHook);

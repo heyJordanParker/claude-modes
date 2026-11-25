@@ -3,15 +3,15 @@
   "owner": {
     "name": "heyJordanParker"
   },
-  "description": "Define your own modes and hooks for Claude Code in Markdown and TypeScript files, switch modes with one key, and browse every session's history by task.",
+  "description": "Define your own modes and hooks for Claude Code in Markdown and TypeScript files, and switch modes with one key.",
   "plugins": [
     {
       "name": "modes",
-      "description": "Define your own modes and hooks for Claude Code in Markdown and TypeScript files, switch modes with one key, and browse every session's history by task.",
+      "description": "Define your own modes and hooks for Claude Code in Markdown and TypeScript files, and switch modes with one key.",
       "source": {
         "source": "archive",
-        "url": "https://github.com/heyJordanParker/claude-modes/releases/download/v1.1.0/modes-1.1.0.zip",
-        "sha256": "1312cd8174a3c7b55877e7881d89ccb2a1b97eb513f0088799968fa379ec1b6e"
+        "url": "https://github.com/heyJordanParker/claude-modes/releases/download/v1.2.0/modes-1.2.0.zip",
+        "sha256": "7007b9bb58a31b4fc6a6ba039a5f6788d5366fa38a8fdfd48390f61f7490bdcf"
       }
     },
     {

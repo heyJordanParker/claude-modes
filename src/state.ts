@@ -1,27 +1,33 @@
-import type { Definitions, ModeState } from './protocol.js'
+import type { Definitions, ModeEntry, ModeState } from './protocol.js'
 
 export type Tab = 'mode' | 'settings'
 
 export type ModesState = {
   memory: {
-    modes: ModeState
     definitions: Definitions | null
     modeTab: { readonly title: string; readonly markdown: string } | null
     failure: string
   }
   session: {
     tab: Tab
+    modes: ModeState
+    previous: string | null
+    told: Record<string, string>
+    entries: ModeEntry[]
   }
 }
 
 export const initialState: ModesState = {
   memory: {
-    modes: { main: undefined, agents: {} },
     definitions: null,
     modeTab: null,
     failure: '',
   },
   session: {
     tab: 'settings',
+    modes: { main: undefined, agents: {} },
+    previous: null,
+    told: {},
+    entries: [],
   },
 }

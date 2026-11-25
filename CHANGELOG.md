@@ -1,5 +1,11 @@
 # Changelog
 
+## [1.3.0]
+
+- Modes no longer copies every conversation into `sessions.db`. The copy made each Claude Code event wait while the program read the transcript, and grew the file without bound. Delete `~/.local/share/cmod/data/modes/sessions.db` to get the space back.
+- The mode lives in the mod's session state. It comes back on `--resume`, and a fork starts with it. An event no hook script listens to in the current mode no longer waits on the program.
+- The `claude-modes` terminal command is gone, with `sessions`, `show`, `set`, `copy`, `current`, `watch`, `import`, `export`, and `check`. The `list_modes` tool lists every problem `check` listed.
+
 ## [1.2.0]
 
 - Switching modes several times in a row gives Claude one note, with the last mode's rules, beside your next prompt. Before, Claude read a note for every switch.

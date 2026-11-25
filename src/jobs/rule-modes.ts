@@ -1,7 +1,7 @@
 import { messageOf, providers, type Job, type Subscription } from '../../node_modules/@cmodjs/core/mod.js'
 import type { RulebookCheck } from '../../types/index.js'
 import type { ModesState } from '../state.js'
-import { modeNameOf } from './mode-gates.js'
+import { modeNameOf } from '../mode-state.js'
 
 export function offRules(state: ModesState, check: RulebookCheck): Readonly<Record<string, 'off'>> | undefined {
   const mode = modeNameOf(state, check.task)

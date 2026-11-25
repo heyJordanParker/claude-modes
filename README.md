@@ -42,9 +42,8 @@ The installer asks you to accept each of these, and `/mods modes` turns each one
 
 | Permission | Why |
 | --- | --- |
-| Run claude-modes on your computer | The program that keeps the session store and runs your hook scripts. cmod downloads it from this repository's release. |
+| Run claude-modes on your computer | The program that loads your mode files and runs your hook scripts. cmod downloads it from this repository's release. |
 | Connect to 127.0.0.1 | The mod talks to its own `claude-modes` program on a local port. The program answers only requests with the token its mod gave it. |
-| Read this conversation | The program reads the session's transcript into its store, for `claude-modes show` and `export`. |
 | Add text Claude reads and start turns | A mode's rules reach Claude, and your hook scripts can add context. |
 | Approve Claude's tool calls for you | An `ask` rule asks you before a call, and a hook script can answer `ask`. Modes never allows a call by itself. |
 | Bind shift+tab | shift+tab switches modes. It replaces shift+tab's built-in cycle of permission modes. A key you already bound stays yours, and you change the key in Settings, under modes, Hotkeys. |
@@ -159,24 +158,6 @@ New sessions start in the first mode, or in the mode an Agent names. To start so
 { "defaultMode": "propose" }
 ```
 
-## The claude-modes command
-
-Modes keeps every session in one SQLite file, `~/.local/share/cmod/data/modes/sessions.db`. Set `CLAUDE_MODES_HOME` to keep it elsewhere.
-
-```text
-claude-modes sessions                     List the latest sessions
-claude-modes show <session>               Print a session's history by task
-claude-modes set <session> mode <mode>    Put a session in a mode
-claude-modes current [--field mode]       The latest session in this folder
-claude-modes watch                        Print every message as sessions record it
-claude-modes import <transcript.jsonl>    Import a Claude Code transcript
-claude-modes export <session>             Print a session as JSON
-claude-modes export <session> --as claude Write a session back as a Claude Code transcript, to resume it
-claude-modes check [<project>]            List the modes, hook scripts, and every problem
-```
-
-To move every session to another machine, copy the store folder there. `claude-modes export <session> --as claude` then writes the session's transcript where Claude Code looks for it, and `claude --resume <session>` continues it.
-
 ## Build on Modes
 
 A mod that draws its own UI for a mode lists `"dependencies": ["cmod", { "name": "modes", "version": "^1.0.0" }]` and calls Modes:
@@ -194,7 +175,7 @@ await mod.dependencies.modes.showTab({ title: 'Review', markdown: '# Checklist\n
 - [Hooks](docs/hooks.md): events, inputs, effects, and the SDK
 - [The Modes view](docs/view.md): Settings and the mode tab
 - [The API](docs/api.md): calling Modes from another mod
-- [How it works](docs/architecture.md): the mod, the program, and the store
+- [How it works](docs/architecture.md): the mod and the program
 
 ## License
 
