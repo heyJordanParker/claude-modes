@@ -280,3 +280,14 @@ test('Claude lists each problem in the mode files, read again after a save', asy
 
   expect(listed.result).toContain(`Problems:\n- ${join(home, 'cmods/modes/broken.md')}: "gates" is not a mode key.`)
 })
+
+test('a session with no mode yet, such as one Modes was installed into, starts in the starting mode at its next prompt', async () => {
+  const home = temporaryFolder()
+  writeFiles(home, modeFiles)
+  const tested = testMod(modes, { projectRoot: temporaryFolder(), options: { defaultMode: 'build' }, providers: [rulebook] })
+  useRealProgram(tested.fakes, home)
+
+  await tested.raise.beforePrompt({ text: 'Go on' })
+
+  expect(tested.state.session.modes.main).toBe('build')
+})

@@ -168,15 +168,18 @@ export const modes = defineMod({
       files: filesOf(call.name, call.input, cwd),
     })
 
+    const startMode = (agentType: string | undefined) => {
+      const definitions = mod.state.memory.definitions
+      if (mod.state.session.modes.main !== undefined || definitions === null) return
+      const fromAgent = agentType === undefined ? undefined : definitions.agentModes[agentType]
+      const names = definitions.modes.map(({ name }) => name)
+      const initial = fromAgent ?? (names.includes(defaultMode()) ? defaultMode() : names[0])
+      enterAs(initial, undefined, fromAgent === undefined || agentType === undefined ? { kind: 'start' } : { kind: 'agent', name: agentType })
+    }
+
     sessions.current.beforeSessionStart(async (start) => {
       await refresh()
-      const definitions = mod.state.memory.definitions
-      if (mod.state.session.modes.main === undefined && definitions !== null) {
-        const fromAgent = start.agentType === undefined ? undefined : definitions.agentModes[start.agentType]
-        const names = definitions.modes.map(({ name }) => name)
-        const initial = fromAgent ?? (names.includes(defaultMode()) ? defaultMode() : names[0])
-        enterAs(initial, undefined, fromAgent === undefined ? { kind: 'start' } : { kind: 'agent', name: start.agentType ?? '' })
-      }
+      startMode(start.agentType)
       const { note } = answersOf(await runHooks('SessionStart', start, { source: start.source }))
       return note === undefined ? undefined : { note }
     })
@@ -186,6 +189,7 @@ export const modes = defineMod({
     sessions.current.goal.beforePrompt(async (message) => {
       if (message.task === undefined) {
         await refresh()
+        startMode(sessions.current.agentType)
         const skill = /^\/([^\s]+)/.exec(message.text)?.[1]
         if (skill !== undefined) enterAs(skillModeOf(mod.state, skill), undefined, { kind: 'skill', name: skill })
         const { refuse, note } = answersOf(await runHooks('UserPromptSubmit', {}, { prompt: message.text }))
