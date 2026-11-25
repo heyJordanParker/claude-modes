@@ -1,5 +1,9 @@
 # Changelog
 
+## [1.3.1]
+
+- A session with no mode yet starts in the starting mode at its next prompt. That covers a session running when Modes 1.3.0 installs, whose mode the old program held, and a session Modes is installed into.
+
 ## [1.3.0]
 
 - Modes no longer copies every conversation into `sessions.db`. The copy made each Claude Code event wait while the program read the transcript, and grew the file without bound. Delete `~/.local/share/cmod/data/modes/sessions.db` to get the space back.
