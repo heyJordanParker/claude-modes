@@ -3,7 +3,7 @@
 - The root is the Modes mod, the plugin named `modes`. `cli/` is the `claude-modes` program it starts, one per Claude Code session.
 - `node_modules/@cmodjs/core/docs/` holds the docs of the installed `@cmodjs/core`. Read the doc for the part you change, starting at `index.md`, before mod work.
 - `src/protocol.ts` holds every message between the mod and the program. The program imports it as `../../src/protocol.ts`. Nothing in `src/` or `tests/` imports from `cli/`, because the release leaves `cli/` out.
-- Mod code in `src/` runs with no Node or Bun. The program in `cli/` runs in Bun, and owns SQLite, the definition files, and hook scripts.
+- Mod code in `src/` runs with no Node or Bun. The program in `cli/` runs in Bun, and owns the definition files and hook scripts. The mod owns the mode, in cmod's `session` state.
 - The mod reaches the program on `127.0.0.1` with a per-session token in `CLAUDE_MODES_TOKEN`.
 - `package.json`'s `cmod` key declares the program, `approve`, and the hotkeys `cmod check` writes from `defineMod`.
 - `types/index.d.ts` copies rulebook's `rulebook/Rules` interface, because Modes does not list rulebook as a dependency. A rule's `metadata.mode` is Modes' key, and rulebook never reads it.

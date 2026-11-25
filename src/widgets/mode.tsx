@@ -1,6 +1,6 @@
 import { AbovePrompt, BelowPrompt, type WidgetInit } from '../../node_modules/@cmodjs/core/mod.js'
 import { Button, Text } from '../../node_modules/@cmodjs/core/ui/elements.js'
-import { modeOf } from '../jobs/mode-gates.js'
+import { modeOf } from '../mode-state.js'
 import type { ModesState } from '../state.js'
 
 export function modeWidget(cycle: () => void): WidgetInit<ModesState> {
@@ -9,7 +9,7 @@ export function modeWidget(cycle: () => void): WidgetInit<ModesState> {
     title: 'Mode',
     areas: [BelowPrompt, AbovePrompt],
     render: (mod) => {
-      const { main } = mod.state.memory.modes
+      const { main } = mod.state.session.modes
       if (main === undefined) return undefined
       const color = modeOf(mod.state, undefined)?.color
       return (

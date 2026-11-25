@@ -2,21 +2,11 @@ import { afterCall } from '../../node_modules/@cmodjs/core/jobs/context.js'
 import type { PermissionRules, Rule } from '../../node_modules/@cmodjs/core/jobs/permissions.js'
 import { decidePermission } from '../../node_modules/@cmodjs/core/jobs/permissions/decide-permission.js'
 import { messageOf, type Job } from '../../node_modules/@cmodjs/core/mod.js'
-import type { Connection } from '../connection.js'
+import { enterMode, modeNameOf, modeOf } from '../mode-state.js'
 import type { Gate, ModeSpec, Patterns, Target } from '../protocol.js'
 import type { ModesState } from '../state.js'
 
 const targetKeys = ['command', 'read', 'write', 'fetch', 'subagent', 'tool'] as const
-
-export function modeNameOf(state: ModesState, agentId: string | undefined): string | undefined {
-  const { modes } = state.memory
-  return (agentId === undefined ? undefined : modes.agents[agentId]) ?? modes.main
-}
-
-export function modeOf(state: ModesState, agentId: string | undefined): ModeSpec | undefined {
-  const name = modeNameOf(state, agentId)
-  return state.memory.definitions?.modes.find((mode) => mode.name === name)
-}
 
 export function modeRules(state: ModesState): PermissionRules<ModesState> {
   const modes = state.memory.definitions?.modes ?? []
@@ -30,7 +20,7 @@ export function modeRules(state: ModesState): PermissionRules<ModesState> {
   return { deny: rulesOf(({ deny }) => deny, 'refuses'), ask: rulesOf(({ ask }) => ask, 'asks before') }
 }
 
-export function modeTransitions(connection: Connection): Job<void, ModesState> {
+export function modeTransitions(): Job<void, ModesState> {
   return (job) => {
     afterCall(
       job,
@@ -38,7 +28,7 @@ export function modeTransitions(connection: Connection): Job<void, ModesState> {
         const mode = modeOf(job.mod.state, call.agentId)
         for (const { enter, ...target } of mode?.after ?? []) {
           if ((await decidePermission({ deny: [target as Rule<ModesState>] }, call, workspace, job.mod, async (run) => run())) === undefined) continue
-          await connection.enter(enter, call.agentId, { kind: 'transition', name: `${mode?.name ?? ''} after ${describe(target)}` })
+          enterMode(job.mod.state, enter, call.agentId, { kind: 'transition', name: `${mode?.name ?? ''} after ${describe(target)}` })
           return [`The session is now in ${enter} mode.`]
         }
         return []

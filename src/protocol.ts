@@ -50,15 +50,10 @@ export type Definitions = {
   readonly version: number
   readonly modes: readonly ModeSpec[]
   readonly hooks: readonly HookScript[]
+  readonly agentModes: Readonly<Record<string, string>>
+  readonly skillModes: Readonly<Record<string, string>>
   readonly problems: readonly Problem[]
   readonly folders: readonly string[]
-}
-
-export type SessionRef = {
-  readonly id: string
-  readonly projectRoot: string
-  readonly cwd: string
-  readonly defaultMode: string
 }
 
 export type ModeState = {
@@ -88,49 +83,25 @@ export type Effect =
   | { readonly ask: string }
   | { readonly context: string }
   | { readonly block: string }
-  | { readonly enter: string }
+  | { readonly enter: string; readonly hook: string }
 
-export type EventRequest = {
-  readonly session: SessionRef
+export type HookRequest = {
+  readonly projectRoot: string
   readonly event: string
   readonly input: Readonly<Record<string, unknown>>
-  readonly commands: readonly (readonly string[])[]
+  readonly context: {
+    readonly session: { readonly id: string; readonly projectRoot: string; readonly cwd: string }
+    readonly mode: string | undefined
+    readonly agentId: string | undefined
+    readonly commands: readonly (readonly string[])[]
+  }
+}
+
+export type HookAnswer = {
+  readonly effects: readonly Effect[]
+  readonly version: number
 }
 
 export function rulesOf(mode: ModeSpec): string {
   return [`Mode: ${mode.name}${mode.description === '' ? '' : ` (${mode.description})`}`, mode.rules].filter((part) => part !== '').join('\n\n')
-}
-
-export type EventAnswer = {
-  readonly effects: readonly Effect[]
-  readonly modes: ModeState
-  readonly version: number
-}
-
-export type EnterRequest = {
-  readonly session: SessionRef
-  readonly mode: string
-  readonly agentId: string | undefined
-  readonly cause: EntryCause
-}
-
-export type MessageKind = 'prompt' | 'reply' | 'tool call' | 'tool result' | 'skill' | 'document' | 'notice'
-
-export type HistoryKind = 'goal' | 'context' | 'turn' | 'task' | 'mode' | MessageKind
-
-export type HistoryNode = {
-  readonly id: string
-  readonly kind: HistoryKind
-  readonly label: string
-  readonly at: number
-  readonly jump?: string
-  readonly isError?: true
-  readonly isRunning?: true
-  readonly calls?: number
-  readonly errors?: number
-  readonly children?: readonly HistoryNode[]
-}
-
-export type History = {
-  readonly root: HistoryNode
 }

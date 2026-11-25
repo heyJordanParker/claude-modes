@@ -33,7 +33,7 @@ export default defineHook({
 
 ## Events and effects
 
-| Event | `input` beyond `session_id`, `transcript_path`, `cwd`, and `hook_event_name` | Effects it takes |
+| Event | `input` beyond `session_id`, `cwd`, and `hook_event_name` | Effects it takes |
 | --- | --- | --- |
 | `SessionStart` | `source`: `startup`, `resume`, `clear`, `compact`, or `fork` | `context`, `enter` |
 | `UserPromptSubmit` | `prompt` | `context`, `block`, `enter` |
@@ -74,7 +74,7 @@ type HookContext = {
 
 ## When a script fails
 
-A script that throws, or runs past 5 seconds, is listed under Problems in the Modes view and in `claude-modes check`. On `PreToolUse` its failure refuses the call with `The <name> hook failed, so it denies the call: <error>`. On every other event the event goes on.
+A script that throws, or runs past 5 seconds, is listed under Problems in the Modes view and by the `list_modes` tool. On `PreToolUse` its failure refuses the call with `The <name> hook failed, so it denies the call: <error>`. On every other event the event goes on.
 
 A script that does not load, such as one with no default export or an unknown event, is skipped and listed under Problems.
 

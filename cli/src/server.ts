@@ -1,14 +1,12 @@
-import type { EnterRequest, EventRequest } from '../../src/protocol.ts'
+import type { HookRequest } from '../../src/protocol.ts'
 import type { Engine } from './engine.ts'
 
 type Routes = Readonly<Record<string, (body: Record<string, unknown>) => unknown>>
 
 export function createHandler(engine: Engine): (request: Request) => Promise<Response> {
   const routes: Routes = {
-    '/event': (body) => engine.event(body as EventRequest),
-    '/enter': (body) => engine.enter(body as EnterRequest),
+    '/hook': (body) => engine.hook(body as HookRequest),
     '/definitions': (body) => engine.definitions(String(body['projectRoot'])),
-    '/entries': (body) => ({ entries: engine.entries(String(body['sessionId'])) }),
   }
 
   return async (request) => {

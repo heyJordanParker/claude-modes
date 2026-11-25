@@ -28,7 +28,7 @@ The mod's own type check needs `.claude-plugin/types/`, which `cmod check` write
 ## Where things go
 
 - A message between the mod and the program: `src/protocol.ts`.
-- Anything that needs Node, Bun, SQLite, or the disk: `cli/src/`.
+- Anything that needs Node, Bun, or the disk: `cli/src/`.
 - Anything that needs Claude Code: the permission check, the rules Claude reads, commands, drawing, and other mods: `src/`.
 - A new kind of call the mod makes, such as to a new host: a row in the README's "What Modes asks for".
 - A new example: `examples/`. `cli/tests/examples.test.ts` loads it, so it must have no problem.

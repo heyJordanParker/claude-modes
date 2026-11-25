@@ -26,7 +26,7 @@ export function writeFiles(root: string, files: Readonly<Record<string, string>>
 }
 
 export function useRealProgram(fakes: Fakes, configHome: string): void {
-  const env = { ...process.env, CLAUDE_CONFIG_DIR: configHome, CLAUDE_MODES_HOME: temporaryFolder() }
+  const env = { ...process.env, CLAUDE_CONFIG_DIR: configHome }
 
   fakes.process.spawn = (request) => {
     const child = Bun.spawn(['bun', main, ...request.argv.slice(1)], { env: { ...env, ...request.env }, stdout: 'pipe', stderr: 'ignore' })

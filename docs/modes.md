@@ -42,7 +42,7 @@ You are reviewing. Read the diff, run the tests, and list every problem you find
 
 The body is the mode's rules. Claude reads them, headed `Mode: <name> (<description>)`, when the conversation starts, and again as a note when the session enters the mode. A subagent reads its own mode's rules when it starts.
 
-A key Modes does not know is a problem. `claude-modes check` and the Modes view list every problem with its fix.
+A key Modes does not know is a problem. The Modes view and the `list_modes` tool list every problem with its fix.
 
 ## Rules
 
@@ -85,6 +85,5 @@ When a call matches and succeeds, the session enters `propose`, and Claude reads
 - shift+tab moves to the next mode.
 - A hook script answers `{ enter: '<name>' }`.
 - Another mod calls `mod.dependencies.modes.enter`.
-- `claude-modes set <session> mode <name>` from a terminal.
 
 A new session starts in the Agent's mode, else in the **Starting mode** option, else in the first mode. Set the option under modes in `/config`, or for a project in `.claude/cmods/modes/options.json` as `{ "defaultMode": "<name>" }`. A subagent whose Agent names no mode works in the session's mode.

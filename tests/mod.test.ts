@@ -11,13 +11,13 @@ afterEach(stopPrograms)
 
 const rulebook = { name: 'rulebook/Rules', mod: 'rulebook', methods: { rules: () => [] } } as const
 
-async function started(files: Readonly<Record<string, string>> = {}, options: { readonly defaultMode?: string } = {}, providers: readonly [typeof rulebook & { readonly isStarted?: false }] = [rulebook]) {
+async function started(files: Readonly<Record<string, string>> = {}, options: { readonly defaultMode?: string } = {}, providers: readonly [typeof rulebook & { readonly isStarted?: false }] = [rulebook], agentType?: string) {
   const home = temporaryFolder()
   const project = temporaryFolder()
   writeFiles(home, { ...modeFiles, ...files })
   const tested = testMod(modes, { projectRoot: project, options, providers })
   useRealProgram(tested.fakes, home)
-  await tested.raise.beforeSessionStart({ source: 'startup' })
+  await tested.raise.beforeSessionStart({ source: 'startup', ...(agentType === undefined ? {} : { agentType }) })
   await tested.settle()
   return { tested, home, project }
 }
@@ -73,7 +73,7 @@ test("modes entered in a row give Claude the last one's rules once, as a note wi
 test('a new session starts in the mode the defaultMode option names', async () => {
   const { tested } = await started({}, { defaultMode: 'build' })
 
-  expect(tested.state.memory.modes.main).toBe('build')
+  expect(tested.state.session.modes.main).toBe('build')
 })
 
 test('propose refuses an edit in the tree and allows a plan, with the mode in the reason', async () => {
@@ -93,11 +93,11 @@ test('/mode moves to the next mode, the hotkey to the one after, and build refus
 
   expect(await tested.type('/mode')).toEqual({})
   const dispatch = await tested.fire('tool.check', check('Agent', { subagent_type: 'explorer', prompt: 'look' }), { decision: 'allow' })
-  expect(tested.state.memory.modes.main).toBe('build')
+  expect(tested.state.session.modes.main).toBe('build')
   expect(dispatch).toEqual({ decision: 'deny', reason: 'build mode refuses every subagent.' })
 
   await tested.hotkey('cycle')
-  expect(tested.state.memory.modes.main).toBe('commit')
+  expect(tested.state.session.modes.main).toBe('commit')
   expect(await tested.type('/mode ship')).toEqual({ text: '/mode failed: "ship" is not a mode. The modes are propose, build, commit.' })
 })
 
@@ -106,7 +106,7 @@ test('each mode gets a slash command of its own', async () => {
 
   await tested.type('/build')
 
-  expect(tested.state.memory.modes.main).toBe('build')
+  expect(tested.state.session.modes.main).toBe('build')
 })
 
 test('a commit in commit mode enters propose and tells Claude', async () => {
@@ -116,7 +116,7 @@ test('a commit in commit mode enters propose and tells Claude', async () => {
   const result = await claudeCodeOf(tested).fire('tool.call', { tool: 'Bash', command: 'git commit -m "ship"', tool_use_id: 'toolu_1' } as never, { result: 'committed' } as never)
 
   expect(JSON.stringify(result)).toContain('The session is now in propose mode.')
-  expect(tested.state.memory.modes.main).toBe('propose')
+  expect(tested.state.session.modes.main).toBe('propose')
 })
 
 test('a hook script answers the prompt it names, and a saved change applies to the next one', async () => {
@@ -184,7 +184,7 @@ test('another mod reads the mode, enters one, and fills the mode tab', async () 
   await tested.api['showTab']?.({ title: 'Review', markdown: '# Checklist' })
   await tested.type('/modes')
 
-  expect(tested.state.memory.modes.main).toBe('build')
+  expect(tested.state.session.modes.main).toBe('build')
   expect((await tested.shown.view.lines()).join('\n')).toContain('Checklist')
 })
 
@@ -209,4 +209,74 @@ test('a rulebook that starts after Modes gets its rules turned off by mode', asy
   const answers = await tested.providers[0].ask('Check', { path: '/work/src/app.ts', session: 'test-session', rules: [rule('build-only', 'build')] })
 
   expect(answers).toEqual([{ rules: { 'build-only': 'off' } }])
+})
+
+test('a Skill that names a mode enters it, typed or called by Claude', async () => {
+  const { tested } = await started({
+    'skills/ship/SKILL.md': '---\nmetadata:\n  modes.mode: build\n---\nShip it.\n',
+    'skills/plan/SKILL.md': '---\nmetadata:\n  modes.mode: propose\n---\nPlan it.\n',
+  })
+
+  await tested.raise.beforePrompt({ text: '/ship the login page' })
+  expect(tested.state.session.modes.main).toBe('build')
+
+  await claudeCodeOf(tested).fire('PostToolUse', { tool_name: 'Skill', tool_input: { skill: 'plan' }, tool_use_id: 'toolu_1', tool_response: 'Plan it.' } as never)
+  expect(tested.state.session.modes.main).toBe('propose')
+})
+
+test('a mode that lasts a turn returns to the mode before it when the turn ends', async () => {
+  const { tested } = await started()
+  await tested.type('/build')
+  await tested.type('/commit')
+  await tested.add({ type: Prompt, text: 'Commit it' })
+
+  await tested.raise.beforeTurnEnd({ answer: 'Committed.' })
+
+  expect(tested.state.session.modes.main).toBe('build')
+  expect((await tested.api['entries']?.({})) as unknown).toMatchObject({
+    entries: [
+      { mode: 'propose', cause: 'start' },
+      { mode: 'build', cause: 'command build' },
+      { mode: 'commit', cause: 'command commit' },
+      { mode: 'build', cause: 'turn-end' },
+    ],
+  })
+})
+
+test('a session started as an Agent starts in its mode, and its subagents run in theirs', async () => {
+  const { tested } = await started({ 'agents/builder.md': '---\nmetadata:\n  modes.mode: build\n---\n', 'agents/explorer.md': '---\nmetadata:\n  modes.mode: propose\n---\n' }, {}, [rulebook], 'builder')
+  const task = await tested.startTask({ title: 'Map the code', agentType: 'explorer' })
+
+  const first = await tested.raise.beforePrompt({ text: 'map it' }, { task })
+
+  expect(tested.state.session.modes.main).toBe('build')
+  expect(await tested.api['current']?.({ agentId: task })).toEqual({ mode: 'propose' })
+  expect(first).toEqual({ note: 'Mode: propose (plan before you build)\n\nYou are proposing.' })
+})
+
+test('an event no hook script listens to in the current mode never reaches the program', async () => {
+  const { tested } = await started({ 'cmods/modes/hooks/build-only.ts': "export default { on: 'PreToolUse', mode: 'build', run: () => ({ deny: 'Not now.' }) }\n" })
+  const fetch = tested.fakes.http.fetch
+  const hooked: string[] = []
+  tested.fakes.http.fetch = (url, init) => {
+    if (String(url).endsWith('/hook')) hooked.push(String(url))
+    return fetch?.(url, init) as never
+  }
+
+  const inPropose = await tested.fire('tool.check', check('Read', { file_path: '/a' }), { decision: 'allow' })
+  await tested.type('/build')
+  const inBuild = await tested.fire('tool.check', check('Read', { file_path: '/a' }), { decision: 'allow' })
+
+  expect(inPropose).toEqual({ decision: 'allow' })
+  expect(inBuild).toEqual({ decision: 'deny', reason: 'Not now.' })
+  expect(hooked).toHaveLength(1)
+})
+
+test('Claude lists each problem in the mode files, read again after a save', async () => {
+  const { tested, home } = await started()
+  writeFiles(home, { 'cmods/modes/broken.md': '---\ngates: []\n---\n' })
+
+  const listed = (await tested.callTool('list_modes', {})) as { readonly result: string }
+
+  expect(listed.result).toContain(`Problems:\n- ${join(home, 'cmods/modes/broken.md')}: "gates" is not a mode key.`)
 })

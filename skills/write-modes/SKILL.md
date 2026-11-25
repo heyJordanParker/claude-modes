@@ -64,4 +64,4 @@ metadata:
 
 ## Check the work
 
-Run `claude-modes check` in the project. It lists each mode, each script, and every problem with its fix, and exits 1 when there is a problem. Fix each problem before you report the change as done.
+Call the `list_modes` tool. It reads the files again first, and lists each mode and every problem with its fix. Fix each problem before you report the change as done.

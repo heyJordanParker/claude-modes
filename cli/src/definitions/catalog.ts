@@ -11,8 +11,6 @@ const modeKey = 'modes.mode'
 export type Loaded = {
   readonly definitions: Definitions
   readonly scripts: readonly LoadedScript[]
-  readonly agentModes: ReadonlyMap<string, string>
-  readonly skillModes: ReadonlyMap<string, string>
 }
 
 export type Catalog = {
@@ -102,7 +100,7 @@ async function loadAll(folders: ReturnType<typeof foldersOf>, version: number): 
   }
 
   const promptModes = (paths: readonly string[], nameOf: (path: string) => string) => {
-    const found = new Map<string, string>()
+    const found: Record<string, string> = {}
     for (const path of paths) {
       const data = attempt(path, () => readFrontmatter(readFileSync(path, 'utf8')).data)
       const metadata = data?.['metadata']
@@ -113,7 +111,7 @@ async function loadAll(folders: ReturnType<typeof foldersOf>, version: number): 
         continue
       }
       const name = typeof data?.['name'] === 'string' ? data['name'] : nameOf(path)
-      found.set(name, mode)
+      found[name] = mode
     }
     return found
   }
@@ -125,12 +123,12 @@ async function loadAll(folders: ReturnType<typeof foldersOf>, version: number): 
       version,
       modes: ordered,
       hooks: [...scripts.values()].map(({ name, source, events, modes: names }) => ({ name, source, events, modes: names })),
+      agentModes: promptModes(agentFiles, (path) => basename(path, '.md')),
+      skillModes: promptModes(skillFiles, (path) => basename(dirname(path))),
       problems,
       folders: folders.modes,
     },
     scripts: [...scripts.values()],
-    agentModes: promptModes(agentFiles, (path) => basename(path, '.md')),
-    skillModes: promptModes(skillFiles, (path) => basename(dirname(path))),
   }
 }
 

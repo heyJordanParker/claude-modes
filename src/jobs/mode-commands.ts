@@ -1,6 +1,6 @@
 import { slashCommand } from '../../node_modules/@cmodjs/core/jobs/slash-command.js'
 import { messageOf, type Job } from '../../node_modules/@cmodjs/core/mod.js'
-import type { Connection } from '../connection.js'
+import { enterMode } from '../mode-state.js'
 import type { Definitions } from '../protocol.js'
 import type { ModesState } from '../state.js'
 
@@ -16,7 +16,7 @@ export function nextMode(definitions: Definitions | null, current: string | unde
   return names[(index + 1) % names.length]
 }
 
-export function modeCommands(connection: Connection): Job<ModeCommands, ModesState> {
+export function modeCommands(): Job<ModeCommands, ModesState> {
   return ({ mod, announce }) => {
     const added = new Set<string>()
     announce('a command for each mode')
@@ -35,7 +35,7 @@ export function modeCommands(connection: Connection): Job<ModeCommands, ModesSta
                 reply: async () => {
                   if (!mod.state.memory.definitions?.modes.some(({ name }) => name === mode.name)) return `/${mode.name} no longer applies: its mode file is gone.`
                   try {
-                    await connection.enter(mode.name, undefined, { kind: 'command', name: mode.name })
+                    enterMode(mod.state, mode.name, undefined, { kind: 'command', name: mode.name })
                     return undefined
                   } catch (error) {
                     return `/${mode.name} failed: ${messageOf(error)}`

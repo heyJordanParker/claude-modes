@@ -1,7 +1,7 @@
 {
   "name": "claude-modes",
-  "version": "1.2.0",
-  "description": "The Modes program: the session store, mode and hook definitions, and the claude-modes command.",
+  "version": "1.3.0",
+  "description": "The Modes program: it loads the mode files and runs the hook scripts.",
   "license": "MIT",
   "private": true,
   "type": "module",

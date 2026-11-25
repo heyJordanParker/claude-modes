@@ -16,7 +16,6 @@ declare module 'claude-modes' {
     readonly session_id: string
     readonly cwd: string
     readonly hook_event_name: E
-    readonly transcript_path?: string
     readonly agent_id?: string
     readonly agent_type?: string
   }

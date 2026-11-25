@@ -1,8 +1,7 @@
 import { createCatalog } from './definitions/catalog.ts'
 import { createEngine } from './engine.ts'
-import { configHome, databaseOf, storeRoot } from './paths.ts'
+import { configHome } from './paths.ts'
 import { createHandler } from './server.ts'
-import { openStore } from './store/store.ts'
 
 const parentCheckMs = 5000
 
@@ -13,8 +12,7 @@ export function serve(): void {
     process.exit(2)
   }
 
-  const store = openStore(databaseOf(storeRoot()))
-  const handle = createHandler(createEngine(store, createCatalog(configHome())))
+  const handle = createHandler(createEngine(createCatalog(configHome())))
   const server = Bun.serve({
     hostname: '127.0.0.1',
     port: 0,
@@ -25,7 +23,6 @@ export function serve(): void {
   const stop = () => {
     clearInterval(watchParent)
     void server.stop(true)
-    store.close()
     process.exit(0)
   }
   const watchParent = setInterval(() => {

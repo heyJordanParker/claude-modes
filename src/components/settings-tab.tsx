@@ -5,7 +5,8 @@ import type { ModeSpec } from '../protocol.js'
 import type { ModesState } from '../state.js'
 
 export function SettingsTab({ mod, enter, defaultMode }: { readonly mod: Mod<ModesState>; readonly enter: (mode: string) => void; readonly defaultMode: string }): JSX.Element {
-  const { definitions, modes, failure } = mod.state.memory
+  const { definitions, failure } = mod.state.memory
+  const { modes } = mod.state.session
   if (definitions === null) return <Text dimColor>{failure === '' ? 'Loading the modes…' : failure}</Text>
 
   return (
@@ -43,7 +44,7 @@ export function SettingsTab({ mod, enter, defaultMode }: { readonly mod: Mod<Mod
         {definitions.folders.map((folder) => (
           <Text dimColor wrap="truncate-start">{folder}</Text>
         ))}
-        <Text dimColor>A saved change applies to the next event.</Text>
+        <Text dimColor>A saved change applies to the next prompt.</Text>
       </Box>
     </Box>
   )

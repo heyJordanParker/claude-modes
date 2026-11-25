@@ -58,8 +58,8 @@ test('Agents and Skills enter modes through their metadata, and an unknown mode 
 
   const loaded = await createCatalog(home).load(temporaryFolder())
 
-  expect([...loaded.agentModes]).toEqual([['planner', 'propose']])
-  expect([...loaded.skillModes]).toEqual([['plan', 'propose']])
+  expect(loaded.definitions.agentModes).toEqual({ planner: 'propose' })
+  expect(loaded.definitions.skillModes).toEqual({ plan: 'propose' })
   expect(loaded.definitions.problems).toEqual([{ source: join(home, 'skills/ship/SKILL.md'), message: 'metadata modes.mode: shipping names no mode file. Use one of propose.' }])
 })
 

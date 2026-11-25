@@ -5,52 +5,37 @@ Modes is two parts: a mod that runs inside Claude Code, and the `claude-modes` p
 ```text
 Claude Code
 └── the Modes mod                 src/, registered by hooks/register.ts
+    │  holds the mode of the session and of each subagent (src/mode-state.ts)
+    │  switches modes: commands, shift+tab, Skills, Agents, transitions, lasts: turn
     │  decides each tool call against the current mode's rules (cmod's permissions job)
     │  gives Claude the mode's rules (cmod's prompt job)
-    │  switches modes, draws the Mode widget and the Modes view, answers other mods
+    │  draws the Mode widget and the Modes view, answers other mods
     │  answers rulebook's Check with the rules outside each agent's mode
     │
-    │  every event, over a local port, with the session's token
+    │  once per prompt, and on each event a hook script listens to in the current mode
     ▼
 claude-modes serve                cli/, one per Claude Code process
 ├── definitions                   mode files, hook scripts, Agent and Skill metadata
-├── engine                        moves between modes, runs hook scripts
-└── store                         sessions.db: sessions, contexts, turns, tasks, messages, modes
+└── engine                        runs hook scripts
 ```
 
 ## Why two parts
 
-A mod runs in Claude Code's hooks environment, which has no Node, no Bun, and no file system of its own. The program runs in Bun, so it can open SQLite, import a hook script from your disk, and give the script the network, processes, and files. The mod keeps what needs Claude Code: the permission check, the rules Claude reads, commands, and drawing.
+A mod runs in Claude Code's hooks environment, which has no Node, no Bun, and no file system of its own. The program runs in Bun, so it can import a hook script from your disk and give the script the network, processes, and files. The mod keeps everything else, the mode included, so an event no hook script listens to never waits on the program.
 
-## The model
+## Where the mode lives
 
-```text
-Session          one conversation, across resumes
-├── Context*     one compaction window
-│   └── Turn*    from a prompt to the next prompt
-│       └── Message*   a prompt, reply, tool call, tool result, Skill, document, or notice
-├── Mode*        each mode entered, with what entered it
-└── Goal         the root task
-    └── Task*    a subagent, opened by the Agent call that dispatched it
-```
-
-The program builds the model from the session's transcript, at the `transcript_path` the mod sends with each event from cmod's `sessions.current.transcriptPath`. On each event it reads the rows written since the last one, from the main transcript and each subagent's, so the store holds the whole session, sessions from before Modes was installed included. `claude-modes import` does the same for any transcript file.
+The mod keeps the mode of the session and of each subagent in cmod's `session` state. It comes back on `--resume`, and a fork of the conversation starts with it. The same state keeps each mode entered, with what entered it, for the `entries` method of the API.
 
 ## Gates and rules
 
 The mod's state holds the mode of the session and of each subagent. cmod's `permissions` job reads the rules from that state before every call, so a rule applies only while its mode is the caller's mode. A rule's `!` patterns are cmod's own, so a mode file writes what cmod's permissions write.
 
-cmod's `prompt` job gives Claude the mode's rules at the start of the conversation, and adds them again as a note each time the mode changes. A subagent does not read the main conversation's notes, so the program gives each subagent its mode's rules when it starts, and again when a Skill moves it to another mode.
+cmod's `prompt` job gives Claude the mode's rules at the start of the conversation, and adds them again as a note each time the mode changes. A subagent does not read the main conversation's notes, so the mod gives each subagent its mode's rules when it starts, and again with its next tool call after a Skill moves it to another mode.
 
 ## Talking to the program
 
-The program listens on `127.0.0.1` on a free port, and prints the address for cmod's `program` job. The mod makes a random token for each session, hands it to the program in `CLAUDE_MODES_TOKEN`, and sends it on every request. The program refuses a request without it, so no other process and no web page reaches the store.
-
-## The store
-
-`sessions.db` is SQLite in WAL mode with a busy timeout, so every session's program writes the one file at once. It lives in cmod's data folder for Modes, `~/.local/share/cmod/data/modes/`, or in `CLAUDE_MODES_HOME`. Moving the folder moves every session.
-
-Beside the model, the store keeps each transcript row as Claude Code wrote it. `claude-modes export <session> --as claude` writes those rows back into Claude Code's projects folder, with each subagent's rows, so a session copied from another machine resumes with `claude --resume`.
+The program listens on `127.0.0.1` on a free port, and prints the address for cmod's `program` job. The mod makes a random token for each session, hands it to the program in `CLAUDE_MODES_TOKEN`, and sends it on every request. The program refuses a request without it, so no other process and no web page runs your hook scripts.
 
 ## The key binding
 
@@ -58,7 +43,7 @@ Modes declares the hotkey `cycle`, `shift+tab` by default, in `defineMod`. cmod 
 
 ## Reloading
 
-Before each event the program compares the time and size of every file it reads. When one changed it loads them again and raises its version. The mod reads the new definitions when an answer carries a new version, and adds a command for each new mode. A mode command whose file is gone answers that it no longer applies, because Claude Code has no call that removes a command.
+The mod reads the definitions from the program before each prompt. The program compares the time and size of every file it reads, and loads them again when one changed. A hook answer that carries a new version, such as after a script fails, makes the mod read them again too. The mod adds a command for each new mode. A mode command whose file is gone answers that it no longer applies, because Claude Code has no call that removes a command.
 
 ## rulebook's checks
 
